@@ -4,19 +4,18 @@
 #include <filesystem>
 #include <memory>
 #include <portable-file-dialogs.h>
-// #include <CANObjects.h>
+#include "dbcppp/Network.h"
 
 namespace imcan {
 
 class DbcDatabase {
 public:
-	DbcDatabase() {};
-	~DbcDatabase() {};
+	explicit DbcDatabase(std::filesystem::path _filepath, std::unique_ptr<dbcppp::INetwork> _network) :
+		filepath(_filepath), filename(_filepath.filename()), network(std::move(_network)) {}
 
-	std::filesystem::path filepath;
-	std::string filename;
-	// CppCAN::CANDatabase db;
-
+	const std::filesystem::path filepath;
+	const std::string filename;
+	std::unique_ptr<dbcppp::INetwork> network;
 }; // class DbcDatabase
 
 class DbcManager : public glass::WindowManager {

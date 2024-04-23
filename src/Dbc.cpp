@@ -1,6 +1,7 @@
 #include "Dbc.h"
+#include "fmt/format.h"
 #include "glass/Context.h"
-// #include <CANObjects.h>
+#include <fstream>
 #include <iostream>
 
 namespace imcan {
@@ -9,38 +10,67 @@ std::unique_ptr<DbcManager> DbcGui::sDbcManager;
 
 bool DbcManager::addDatabase(std::filesystem::path path) {
 	if (std::filesystem::exists(path)) {
-		DbcDatabase newdb;
-		newdb.filepath = path;
-		newdb.filename = path.filename();
-
 		bool isNew = true;
-		for(auto db : sDatabases) {
-			if (db.filepath == newdb.filepath) {
+		for(auto &db : sDatabases) {
+			if (db.filepath == path) {
 				isNew = false;
 				break;
 			}
 		}
+		if (!isNew) { return false; }
 
-		// // TODO: parser
-		// try {
-		// 	newdb.db = CppCAN::CANDatabase::fromFile(newdb.filepath);
-		// } catch (CppCAN::CANDatabaseException &ex) {
-		// 	std::cout << "DBC shidded britch, " << ex.what() << std::endl;
-		// 	return false;
-		// }
+		auto filestream = std::ifstream{path};
+		std::unique_ptr<dbcppp::INetwork> dbcNetwork = dbcppp::INetwork::LoadDBCFromIs(filestream);
+		if (!dbcNetwork) { return false; }
 
-		if (isNew) {
-			sDatabases.push_back(newdb);
-		}
-		return isNew;
+		DbcDatabase newdb{path, std::move(dbcNetwork)};
+		sDatabases.push_back(std::move(newdb));
+		return true;
 	} else return false;
+}
+
+static void DisplaySignal(const dbcppp::ISignal& sig) {
+	if (ImGui::TreeNode(sig.Name().c_str())) {
+		ImGui::Text("ByteOrder: %s", 
+			(sig.ByteOrder() == dbcppp::ISignal::EByteOrder::BigEndian) ? 
+				"BigEndian" : "LittleEndian"
+		);
+		ImGui::Text("Comment: %s", sig.Comment().c_str());
+		ImGui::Text("Unit: %s", sig.Unit().c_str());
+		ImGui::Text("Factor: %f", sig.Factor());
+		ImGui::Text("Minimum: %f", sig.Minimum());
+		ImGui::Text("Maximum: %f", sig.Maximum());
+		ImGui::Text("Offset: %f", sig.Offset());
+
+		ImGui::TreePop();
+	}
+}
+
+static void DisplayMessage(const dbcppp::IMessage& msg) {
+	std::string msgTitle = fmt::format("0x{:3x} ({})", msg.Id(), msg.Name());
+	if(ImGui::TreeNode(msgTitle.c_str())) {
+		ImGui::Text("ID: 0x%lX (%lu)", msg.Id(), msg.Id());
+		ImGui::Text("Signals: %lu", msg.Signals_Size());
+		ImGui::Text("Size: %lu", msg.MessageSize());
+		ImGui::Text("Transmitter: %s", msg.Transmitter().c_str());
+
+		for (const dbcppp::ISignal& sig : msg.Signals()) {
+			DisplaySignal(sig);
+		}
+		ImGui::TreePop();
+	}
 }
 
 static void DisplayDatabase(DbcDatabase& dbc) {
 	if (ImGui::TreeNode(dbc.filename.c_str())) {
 		ImGui::Text("Path: %s", dbc.filepath.c_str());
-		// ImGui::Text("Size: %lu", dbc.db.size());
-		// ImGui::TreeNode()
+		ImGui::Text("Node Size: %lu", dbc.network->Nodes_Size());
+		ImGui::Text("Messages Size: %lu", dbc.network->Messages_Size());
+		ImGui::Text("Version: %s", dbc.network->Version().c_str());
+
+		for (const dbcppp::IMessage& msg : dbc.network->Messages()) {
+			DisplayMessage(msg);
+		}
 		ImGui::TreePop();
 	}
 }
@@ -56,6 +86,8 @@ void DbcManager::DisplayLoader() {
 			filepath = file.get()->result()[0];
 			loadOk = addDatabase(filepath);
 		}
+
+		std::cout << "DBC Load" << (loadOk ? "OK" : "FAIL") << std::endl;
 
 		ImGui::OpenPopup("DBC Load");
 		if (ImGui::BeginPopupModal("DBC Load")) {
@@ -77,7 +109,7 @@ void DbcManager::DisplayLoader() {
 
 	ImGui::Text("DBCs");
 
-	for (auto dbc : sDatabases) {
+	for (auto &dbc : sDatabases) {
 		DisplayDatabase(dbc);
 	}
 }

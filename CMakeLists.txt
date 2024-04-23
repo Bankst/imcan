@@ -20,7 +20,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
 	libglass
-	# cpp-can-parser
+	dbcppp
 	portable_file_dialogs
 	rt
 )
