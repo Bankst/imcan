@@ -1,0 +1,4840 @@
+commit 422b36a8c591da0180aa37338747c7b6bbe23471
+Author: Banks Troutman <btrout.dhrs@gmail.com>
+Date:   Mon Apr 22 17:36:37 2024 -0400
+
+    remove FRC specific glass items
+
+diff --git a/glass/CMakeLists.txt b/glass/CMakeLists.txt
+index 36f94f5f1..ef4bdce71 100644
+--- a/glass/CMakeLists.txt
++++ b/glass/CMakeLists.txt
+@@ -16,7 +16,7 @@ set_property(TARGET libglass PROPERTY POSITION_INDEPENDENT_CODE ON)
+ set_property(TARGET libglass PROPERTY FOLDER "libraries")
+ 
+ wpilib_target_warnings(libglass)
+-target_link_libraries(libglass PUBLIC wpigui wpimath wpiutil fieldImages)
++target_link_libraries(libglass PUBLIC wpigui wpiutil)
+ 
+ target_include_directories(
+     libglass
+diff --git a/glass/src/lib/native/cpp/hardware/Accelerometer.cpp b/glass/src/lib/native/cpp/hardware/Accelerometer.cpp
+deleted file mode 100644
+index 6a1cc03a7..000000000
+--- a/glass/src/lib/native/cpp/hardware/Accelerometer.cpp
++++ /dev/null
+@@ -1,50 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/Accelerometer.h"
+-
+-#include "glass/DataSource.h"
+-#include "glass/other/DeviceTree.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayAccelerometerDevice(AccelerometerModel* model) {
+-  if (!model->Exists()) {
+-    return;
+-  }
+-  if (BeginDevice("BuiltInAccel")) {
+-    // Range
+-    {
+-      int value = model->GetRange();
+-      static const char* rangeOptions[] = {"2G", "4G", "8G"};
+-      DeviceEnum("Range", true, &value, rangeOptions, 3);
+-    }
+-
+-    // X Accel
+-    if (auto xData = model->GetXData()) {
+-      double value = xData->GetValue();
+-      if (DeviceDouble("X Accel", false, &value, xData)) {
+-        model->SetX(value);
+-      }
+-    }
+-
+-    // Y Accel
+-    if (auto yData = model->GetYData()) {
+-      double value = yData->GetValue();
+-      if (DeviceDouble("Y Accel", false, &value, yData)) {
+-        model->SetY(value);
+-      }
+-    }
+-
+-    // Z Accel
+-    if (auto zData = model->GetZData()) {
+-      double value = zData->GetValue();
+-      if (DeviceDouble("Z Accel", false, &value, zData)) {
+-        model->SetZ(value);
+-      }
+-    }
+-
+-    EndDevice();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/AnalogGyro.cpp b/glass/src/lib/native/cpp/hardware/AnalogGyro.cpp
+deleted file mode 100644
+index 259539fc2..000000000
+--- a/glass/src/lib/native/cpp/hardware/AnalogGyro.cpp
++++ /dev/null
+@@ -1,41 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/AnalogGyro.h"
+-
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/DataSource.h"
+-#include "glass/other/DeviceTree.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayAnalogGyroDevice(AnalogGyroModel* model, int index) {
+-  char name[32];
+-  wpi::format_to_n_c_str(name, sizeof(name), "AnalogGyro[{}]", index);
+-
+-  if (BeginDevice(name)) {
+-    // angle
+-    if (auto angleData = model->GetAngleData()) {
+-      double value = angleData->GetValue();
+-      if (DeviceDouble("Angle", false, &value, angleData)) {
+-        model->SetAngle(value);
+-      }
+-    }
+-
+-    // rate
+-    if (auto rateData = model->GetRateData()) {
+-      double value = rateData->GetValue();
+-      if (DeviceDouble("Rate", false, &value, rateData)) {
+-        model->SetRate(value);
+-      }
+-    }
+-    EndDevice();
+-  }
+-}
+-
+-void glass::DisplayAnalogGyrosDevice(AnalogGyrosModel* model) {
+-  model->ForEachAnalogGyro(
+-      [&](AnalogGyroModel& gyro, int i) { DisplayAnalogGyroDevice(&gyro, i); });
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/AnalogInput.cpp b/glass/src/lib/native/cpp/hardware/AnalogInput.cpp
+deleted file mode 100644
+index a2051cf6b..000000000
+--- a/glass/src/lib/native/cpp/hardware/AnalogInput.cpp
++++ /dev/null
+@@ -1,72 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/AnalogInput.h"
+-
+-#include <imgui.h>
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-#include "glass/Storage.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayAnalogInput(AnalogInputModel* model, int index) {
+-  auto voltageData = model->GetVoltageData();
+-  if (!voltageData) {
+-    return;
+-  }
+-
+-  // build label
+-  std::string& name = GetStorage().GetString("name");
+-  char label[128];
+-  if (!name.empty()) {
+-    wpi::format_to_n_c_str(label, sizeof(label), "{} [{}]###name", name, index);
+-  } else {
+-    wpi::format_to_n_c_str(label, sizeof(label), "In[{}]###name", index);
+-  }
+-
+-  if (model->IsGyro()) {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::LabelText(label, "AnalogGyro[%d]", index);
+-    ImGui::PopStyleColor();
+-  } else if (auto simDevice = model->GetSimDevice()) {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::LabelText(label, "%s", simDevice);
+-    ImGui::PopStyleColor();
+-  } else {
+-    float val = voltageData->GetValue();
+-    if (voltageData->SliderFloat(label, &val, 0.0, 5.0)) {
+-      model->SetVoltage(val);
+-    }
+-  }
+-
+-  // context menu to change name
+-  if (PopupEditName("name", &name)) {
+-    voltageData->SetName(name);
+-  }
+-}
+-
+-void glass::DisplayAnalogInputs(AnalogInputsModel* model,
+-                                std::string_view noneMsg) {
+-  ImGui::Text("(Use Ctrl+Click to edit value)");
+-  bool hasAny = false;
+-  bool first = true;
+-  model->ForEachAnalogInput([&](AnalogInputModel& input, int i) {
+-    if (!first) {
+-      ImGui::Spacing();
+-      ImGui::Spacing();
+-    } else {
+-      first = false;
+-    }
+-    PushID(i);
+-    DisplayAnalogInput(&input, i);
+-    PopID();
+-    hasAny = true;
+-  });
+-  if (!hasAny && !noneMsg.empty()) {
+-    ImGui::TextUnformatted(noneMsg.data(), noneMsg.data() + noneMsg.size());
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/AnalogOutput.cpp b/glass/src/lib/native/cpp/hardware/AnalogOutput.cpp
+deleted file mode 100644
+index 2436dd28f..000000000
+--- a/glass/src/lib/native/cpp/hardware/AnalogOutput.cpp
++++ /dev/null
+@@ -1,53 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/AnalogOutput.h"
+-
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-#include "glass/Storage.h"
+-#include "glass/other/DeviceTree.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayAnalogOutputsDevice(AnalogOutputsModel* model) {
+-  int count = 0;
+-  model->ForEachAnalogOutput([&](auto&, int) { ++count; });
+-  if (count == 0) {
+-    return;
+-  }
+-
+-  if (BeginDevice("Analog Outputs")) {
+-    model->ForEachAnalogOutput([&](auto& analogOut, int i) {
+-      auto analogOutData = analogOut.GetVoltageData();
+-      if (!analogOutData) {
+-        return;
+-      }
+-      PushID(i);
+-
+-      // build label
+-      std::string& name = GetStorage().GetString("name");
+-      char label[128];
+-      if (!name.empty()) {
+-        wpi::format_to_n_c_str(label, sizeof(label), "{} [{}]###name", name, i);
+-      } else {
+-        wpi::format_to_n_c_str(label, sizeof(label), "Out[{}]###name", i);
+-      }
+-
+-      double value = analogOutData->GetValue();
+-      DeviceDouble(label, true, &value, analogOutData);
+-
+-      if (PopupEditName("name", &name)) {
+-        if (analogOutData) {
+-          analogOutData->SetName(name);
+-        }
+-      }
+-      PopID();
+-    });
+-
+-    EndDevice();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/DIO.cpp b/glass/src/lib/native/cpp/hardware/DIO.cpp
+deleted file mode 100644
+index f52974a5a..000000000
+--- a/glass/src/lib/native/cpp/hardware/DIO.cpp
++++ /dev/null
+@@ -1,123 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/DIO.h"
+-
+-#include <imgui.h>
+-
+-#include "glass/DataSource.h"
+-#include "glass/hardware/Encoder.h"
+-#include "glass/support/NameSetting.h"
+-
+-using namespace glass;
+-
+-static void LabelSimDevice(const char* name, const char* simDeviceName) {
+-  ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-  ImGui::LabelText(name, "%s", simDeviceName);
+-  ImGui::PopStyleColor();
+-}
+-
+-void DisplayDIOImpl(DIOModel* model, int index, bool outputsEnabled) {
+-  auto dpwm = model->GetDPWM();
+-  auto dutyCycle = model->GetDutyCycle();
+-  auto encoder = model->GetEncoder();
+-
+-  auto dioData = model->GetValueData();
+-  auto dpwmData = dpwm ? dpwm->GetValueData() : nullptr;
+-  auto dutyCycleData = dutyCycle ? dutyCycle->GetValueData() : nullptr;
+-
+-  bool exists = model->Exists();
+-  NameSetting dioName{dioData->GetName()};
+-  char label[128];
+-  if (exists && dpwmData) {
+-    NameSetting{dpwmData->GetName()}.GetLabel(label, sizeof(label), "PWM",
+-                                              index);
+-    if (auto simDevice = dpwm->GetSimDevice()) {
+-      LabelSimDevice(label, simDevice);
+-    } else {
+-      dpwmData->LabelText(label, "%0.3f", dpwmData->GetValue());
+-    }
+-  } else if (exists && encoder) {
+-    dioName.GetLabel(label, sizeof(label), " In", index);
+-    if (auto simDevice = encoder->GetSimDevice()) {
+-      LabelSimDevice(label, simDevice);
+-    } else {
+-      ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-      ImGui::LabelText(label, "Encoder[%d,%d]", encoder->GetChannelA(),
+-                       encoder->GetChannelB());
+-      ImGui::PopStyleColor();
+-    }
+-  } else if (exists && dutyCycleData) {
+-    NameSetting{dutyCycleData->GetName()}.GetLabel(label, sizeof(label), "Dty",
+-                                                   index);
+-    if (auto simDevice = dutyCycle->GetSimDevice()) {
+-      LabelSimDevice(label, simDevice);
+-    } else {
+-      double val = dutyCycleData->GetValue();
+-      if (dutyCycleData->InputDouble(label, &val)) {
+-        dutyCycle->SetValue(val);
+-      }
+-    }
+-  } else {
+-    const char* name = model->GetName();
+-    if (name[0] != '\0') {
+-      dioName.GetLabel(label, sizeof(label), name);
+-    } else {
+-      dioName.GetLabel(label, sizeof(label), model->IsInput() ? " In" : "Out",
+-                       index);
+-    }
+-    if (auto simDevice = model->GetSimDevice()) {
+-      LabelSimDevice(label, simDevice);
+-    } else {
+-      if (!exists) {
+-        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-        dioData->LabelText(label, "unknown");
+-        ImGui::PopStyleColor();
+-      } else if (model->IsReadOnly()) {
+-        dioData->LabelText(
+-            label, "%s",
+-            outputsEnabled ? (dioData->GetValue() != 0 ? "1 (high)" : "0 (low)")
+-                           : "1 (disabled)");
+-
+-      } else {
+-        static const char* options[] = {"0 (low)", "1 (high)"};
+-        int val = dioData->GetValue() != 0 ? 1 : 0;
+-        if (dioData->Combo(label, &val, options, 2)) {
+-          model->SetValue(val);
+-        }
+-      }
+-    }
+-  }
+-  if (dioName.PopupEditName(index)) {
+-    if (dpwmData) {
+-      dpwmData->SetName(dioName.GetName());
+-    }
+-    if (dutyCycleData) {
+-      dutyCycleData->SetName(dioName.GetName());
+-    }
+-  }
+-}
+-
+-void glass::DisplayDIO(DIOModel* model, int index, bool outputsEnabled) {
+-  ImGui::PushItemWidth(ImGui::GetFontSize() * 8);
+-  DisplayDIOImpl(model, index, outputsEnabled);
+-  ImGui::PopItemWidth();
+-}
+-
+-void glass::DisplayDIOs(DIOsModel* model, bool outputsEnabled,
+-                        std::string_view noneMsg) {
+-  bool hasAny = false;
+-
+-  ImGui::PushItemWidth(ImGui::GetFontSize() * 8);
+-  model->ForEachDIO([&](DIOModel& dio, int i) {
+-    hasAny = true;
+-    ImGui::PushID(i);
+-    DisplayDIOImpl(&dio, i, outputsEnabled);
+-    ImGui::PopID();
+-  });
+-  ImGui::PopItemWidth();
+-  if (!hasAny && !noneMsg.empty()) {
+-    ImGui::TextUnformatted(noneMsg.data(), noneMsg.data() + noneMsg.size());
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/Encoder.cpp b/glass/src/lib/native/cpp/hardware/Encoder.cpp
+deleted file mode 100644
+index b359274e5..000000000
+--- a/glass/src/lib/native/cpp/hardware/Encoder.cpp
++++ /dev/null
+@@ -1,171 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/Encoder.h"
+-
+-#include <fmt/format.h>
+-#include <imgui.h>
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-#include "glass/Storage.h"
+-
+-using namespace glass;
+-
+-void EncoderModel::SetName(std::string_view name) {
+-  if (name.empty()) {
+-    if (auto distancePerPulse = GetDistancePerPulseData()) {
+-      distancePerPulse->SetName("");
+-    }
+-    if (auto count = GetCountData()) {
+-      count->SetName("");
+-    }
+-    if (auto period = GetPeriodData()) {
+-      period->SetName("");
+-    }
+-    if (auto direction = GetDirectionData()) {
+-      direction->SetName("");
+-    }
+-    if (auto distance = GetDistanceData()) {
+-      distance->SetName("");
+-    }
+-    if (auto rate = GetRateData()) {
+-      rate->SetName("");
+-    }
+-  } else {
+-    if (auto distancePerPulse = GetDistancePerPulseData()) {
+-      distancePerPulse->SetName(fmt::format("{} Distance/Count", name));
+-    }
+-    if (auto count = GetCountData()) {
+-      count->SetName(fmt::format("{} Count", name));
+-    }
+-    if (auto period = GetPeriodData()) {
+-      period->SetName(fmt::format("{} Period", name));
+-    }
+-    if (auto direction = GetDirectionData()) {
+-      direction->SetName(fmt::format("{} Direction", name));
+-    }
+-    if (auto distance = GetDistanceData()) {
+-      distance->SetName(fmt::format("{} Distance", name));
+-    }
+-    if (auto rate = GetRateData()) {
+-      rate->SetName(fmt::format("{} Rate", name));
+-    }
+-  }
+-}
+-
+-void glass::DisplayEncoder(EncoderModel* model) {
+-  if (auto simDevice = model->GetSimDevice()) {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::TextUnformatted(simDevice);
+-    ImGui::PopStyleColor();
+-    return;
+-  }
+-
+-  int chA = model->GetChannelA();
+-  int chB = model->GetChannelB();
+-
+-  // build header label
+-  std::string& name = GetStorage().GetString("name");
+-  char label[128];
+-  if (!name.empty()) {
+-    wpi::format_to_n_c_str(label, sizeof(label), "{} [{},{}]###header", name,
+-                           chA, chB);
+-  } else {
+-    wpi::format_to_n_c_str(label, sizeof(label), "Encoder[{},{}]###header", chA,
+-                           chB);
+-  }
+-
+-  // header
+-  bool open = CollapsingHeader(label);
+-
+-  // context menu to change name
+-  if (PopupEditName("header", &name)) {
+-    model->SetName(name);
+-  }
+-
+-  if (!open) {
+-    return;
+-  }
+-
+-  ImGui::PushItemWidth(ImGui::GetFontSize() * 8);
+-  // distance per pulse
+-  if (auto distancePerPulseData = model->GetDistancePerPulseData()) {
+-    double value = distancePerPulseData->GetValue();
+-    distancePerPulseData->LabelText("Dist/Count", "%.6f", value);
+-  }
+-
+-  // count
+-  if (auto countData = model->GetCountData()) {
+-    int value = countData->GetValue();
+-    if (ImGui::InputInt("##input", &value)) {
+-      model->SetCount(value);
+-    }
+-    ImGui::SameLine();
+-    if (ImGui::Button("Reset")) {
+-      model->SetCount(0);
+-    }
+-    ImGui::SameLine();
+-    ImGui::Selectable("Count");
+-    countData->EmitDrag();
+-  }
+-
+-  // max period
+-  {
+-    double maxPeriod = model->GetMaxPeriod();
+-    ImGui::LabelText("Max Period", "%.6f", maxPeriod);
+-  }
+-
+-  // period
+-  if (auto periodData = model->GetPeriodData()) {
+-    double value = periodData->GetValue();
+-    if (periodData->InputDouble("Period", &value, 0, 0, "%.6g")) {
+-      model->SetPeriod(value);
+-    }
+-  }
+-
+-  // reverse direction
+-  ImGui::LabelText("Reverse Direction", "%s",
+-                   model->GetReverseDirection() ? "true" : "false");
+-
+-  // direction
+-  if (auto directionData = model->GetDirectionData()) {
+-    static const char* options[] = {"reverse", "forward"};
+-    int value = directionData->GetValue() ? 1 : 0;
+-    if (directionData->Combo("Direction", &value, options, 2)) {
+-      model->SetDirection(value != 0);
+-    }
+-  }
+-
+-  // distance
+-  if (auto distanceData = model->GetDistanceData()) {
+-    double value = distanceData->GetValue();
+-    if (distanceData->InputDouble("Distance", &value, 0, 0, "%.6g")) {
+-      model->SetDistance(value);
+-    }
+-  }
+-
+-  // rate
+-  if (auto rateData = model->GetRateData()) {
+-    double value = rateData->GetValue();
+-    if (rateData->InputDouble("Rate", &value, 0, 0, "%.6g")) {
+-      model->SetRate(value);
+-    }
+-  }
+-  ImGui::PopItemWidth();
+-}
+-
+-void glass::DisplayEncoders(EncodersModel* model, std::string_view noneMsg) {
+-  bool hasAny = false;
+-  model->ForEachEncoder([&](EncoderModel& encoder, int i) {
+-    hasAny = true;
+-    PushID(i);
+-    DisplayEncoder(&encoder);
+-    PopID();
+-  });
+-  if (!hasAny && !noneMsg.empty()) {
+-    ImGui::TextUnformatted(noneMsg.data(), noneMsg.data() + noneMsg.size());
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/Gyro.cpp b/glass/src/lib/native/cpp/hardware/Gyro.cpp
+deleted file mode 100644
+index 8ba5d5e1d..000000000
+--- a/glass/src/lib/native/cpp/hardware/Gyro.cpp
++++ /dev/null
+@@ -1,84 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/Gyro.h"
+-
+-#include <cmath>
+-#include <numbers>
+-
+-#define IMGUI_DEFINE_MATH_OPERATORS
+-
+-#include <imgui.h>
+-#include <imgui_internal.h>
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayGyro(GyroModel* m) {
+-  ImColor primaryColor = ImGui::GetStyle().Colors[ImGuiCol_Text];
+-  ImColor disabledColor = ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+-  ImColor secondaryColor = ImGui::GetStyle().Colors[ImGuiCol_Header];
+-
+-  auto angle = m->GetAngleData();
+-  if (!angle || !m->Exists()) {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown Gyro");
+-    ImGui::PopStyleColor();
+-    return;
+-  }
+-
+-  // Display the numeric angle value. This can be editable in some cases (i.e.
+-  // running from HALSIM).
+-  auto flags =
+-      m->IsReadOnly() ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_None;
+-  auto value = angle->GetValue();
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+-  if (ImGui::InputDouble("Gyro Angle (Deg)", &value, 0.0, 0.0, "%.4f", flags)) {
+-    m->SetAngle(value);
+-  }
+-
+-  // Draw the gyro indicator.
+-  ImDrawList* draw = ImGui::GetWindowDrawList();
+-  ImVec2 window = ImGui::GetWindowPos();
+-  float w = ImGui::GetWindowWidth();
+-  float h = ImGui::GetWindowHeight();
+-
+-  float radius = (w < h) ? w * 0.3 : h * 0.3;
+-  ImVec2 center = window + ImVec2(w / 2, h / 2 + ImGui::GetFontSize());
+-
+-  // Add the primary circle.
+-  draw->AddCircle(center, radius, primaryColor, 100, 1.5);
+-
+-  // Draw the spokes at every 5 degrees and a "major" spoke every 45 degrees.
+-  for (int i = -175; i <= 180; i += 5) {
+-    double radians = i * 2 * std::numbers::pi / 360.0;
+-    ImVec2 direction(std::sin(radians), -std::cos(radians));
+-
+-    bool major = i % 45 == 0;
+-    auto color = major ? primaryColor : disabledColor;
+-
+-    draw->AddLine(center + (direction * radius),
+-                  center + (direction * radius * (major ? 1.07f : 1.03f)),
+-                  color, 1.2f);
+-    if (major) {
+-      char txt[16];
+-      wpi::format_to_n_c_str(txt, sizeof(txt), "{}°", i);
+-
+-      draw->AddText(
+-          center + (direction * radius * 1.25) - ImGui::CalcTextSize(txt) * 0.5,
+-          primaryColor, txt, nullptr);
+-    }
+-  }
+-
+-  draw->AddCircleFilled(center, radius * 0.075, secondaryColor, 50);
+-
+-  double radians = value * 2 * std::numbers::pi / 360.0;
+-  draw->AddLine(
+-      center - ImVec2(1, 0),
+-      center + ImVec2(std::sin(radians), -std::cos(radians)) * radius * 0.95f,
+-      secondaryColor, 3);
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/LEDDisplay.cpp b/glass/src/lib/native/cpp/hardware/LEDDisplay.cpp
+deleted file mode 100644
+index c3c2406db..000000000
+--- a/glass/src/lib/native/cpp/hardware/LEDDisplay.cpp
++++ /dev/null
+@@ -1,101 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/LEDDisplay.h"
+-
+-#include <wpi/SmallVector.h>
+-
+-#include "glass/Context.h"
+-#include "glass/Storage.h"
+-#include "glass/support/ExtraGuiWidgets.h"
+-
+-using namespace glass;
+-
+-namespace {
+-struct IndicatorData {
+-  std::vector<int> values;
+-  std::vector<ImU32> colors;
+-};
+-}  // namespace
+-
+-void glass::DisplayLEDDisplay(LEDDisplayModel* model, int index) {
+-  wpi::SmallVector<LEDDisplayModel::Data, 64> dataBuf;
+-  auto data = model->GetData(dataBuf);
+-  int length = data.size();
+-  bool running = model->IsRunning();
+-  auto& storage = GetStorage();
+-
+-  int& numColumns = storage.GetInt("columns", 10);
+-  bool& serpentine = storage.GetBool("serpentine", false);
+-  int& order = storage.GetInt("order", LEDConfig::RowMajor);
+-  int& start = storage.GetInt("start", LEDConfig::UpperLeft);
+-
+-  ImGui::PushItemWidth(ImGui::GetFontSize() * 6);
+-  ImGui::LabelText("Length", "%d", length);
+-  ImGui::LabelText("Running", "%s", running ? "Yes" : "No");
+-  ImGui::InputInt("Columns", &numColumns);
+-  {
+-    static const char* options[] = {"Row Major", "Column Major"};
+-    ImGui::Combo("Order", &order, options, 2);
+-  }
+-  {
+-    static const char* options[] = {"Upper Left", "Lower Left", "Upper Right",
+-                                    "Lower Right"};
+-    ImGui::Combo("Start", &start, options, 4);
+-  }
+-  ImGui::Checkbox("Serpentine", &serpentine);
+-  if (numColumns < 1) {
+-    numColumns = 1;
+-  }
+-  ImGui::PopItemWidth();
+-
+-  // show as LED indicators
+-  auto iData = storage.GetData<IndicatorData>();
+-  if (!iData) {
+-    storage.SetData(std::make_shared<IndicatorData>());
+-    iData = storage.GetData<IndicatorData>();
+-  }
+-  if (length > static_cast<int>(iData->values.size())) {
+-    iData->values.resize(length);
+-  }
+-  if (length > static_cast<int>(iData->colors.size())) {
+-    iData->colors.resize(length);
+-  }
+-  if (!running) {
+-    iData->colors[0] = IM_COL32(128, 128, 128, 255);
+-    for (int j = 0; j < length; ++j) {
+-      iData->values[j] = -1;
+-    }
+-  } else {
+-    for (int j = 0; j < length; ++j) {
+-      iData->values[j] = j + 1;
+-      iData->colors[j] = IM_COL32(data[j].r, data[j].g, data[j].b, 255);
+-    }
+-  }
+-
+-  LEDConfig config;
+-  config.serpentine = serpentine;
+-  config.order = static_cast<LEDConfig::Order>(order);
+-  config.start = static_cast<LEDConfig::Start>(start);
+-
+-  DrawLEDs(iData->values.data(), length, numColumns, iData->colors.data(), 0, 0,
+-           config);
+-}
+-
+-void glass::DisplayLEDDisplays(LEDDisplaysModel* model) {
+-  bool hasAny = false;
+-
+-  model->ForEachLEDDisplay([&](LEDDisplayModel& display, int i) {
+-    hasAny = true;
+-    if (model->GetNumLEDDisplays() > 1) {
+-      ImGui::Text("LEDs[%d]", i);
+-    }
+-    PushID(i);
+-    DisplayLEDDisplay(&display, i);
+-    PopID();
+-  });
+-  if (!hasAny) {
+-    ImGui::Text("No addressable LEDs");
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/MotorController.cpp b/glass/src/lib/native/cpp/hardware/MotorController.cpp
+deleted file mode 100644
+index 96181b29c..000000000
+--- a/glass/src/lib/native/cpp/hardware/MotorController.cpp
++++ /dev/null
+@@ -1,50 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/MotorController.h"
+-
+-#include <imgui.h>
+-#include <imgui_internal.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayMotorController(MotorControllerModel* m) {
+-  // Get duty cycle data from the model and do not display anything if the data
+-  // is null.
+-  auto dc = m->GetPercentData();
+-  if (!dc || !m->Exists()) {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown MotorController");
+-    ImGui::PopStyleColor();
+-    return;
+-  }
+-
+-  // Set the buttons and sliders to read-only if the model is read-only.
+-  if (m->IsReadOnly()) {
+-    ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(210, 210, 210, 255));
+-  }
+-
+-  // Add button to zero output.
+-  if (ImGui::Button("Zero")) {
+-    m->SetPercent(0.0);
+-  }
+-  ImGui::SameLine();
+-
+-  // Display a slider for the data.
+-  float value = dc->GetValue();
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+-
+-  if (dc->SliderFloat("% Output", &value, -1.0f, 1.0f)) {
+-    m->SetPercent(value);
+-  }
+-
+-  if (m->IsReadOnly()) {
+-    ImGui::PopStyleColor();
+-    ImGui::PopItemFlag();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/PCM.cpp b/glass/src/lib/native/cpp/hardware/PCM.cpp
+deleted file mode 100644
+index 6238fd9ae..000000000
+--- a/glass/src/lib/native/cpp/hardware/PCM.cpp
++++ /dev/null
+@@ -1,162 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/PCM.h"
+-
+-#include <cstdio>
+-#include <cstring>
+-
+-#include <imgui.h>
+-#include <wpi/SmallVector.h>
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-#include "glass/Storage.h"
+-#include "glass/other/DeviceTree.h"
+-#include "glass/support/ExtraGuiWidgets.h"
+-#include "glass/support/NameSetting.h"
+-
+-using namespace glass;
+-
+-bool glass::DisplayPCMSolenoids(PCMModel* model, int index,
+-                                bool outputsEnabled) {
+-  wpi::SmallVector<int, 16> channels;
+-  model->ForEachSolenoid([&](SolenoidModel& solenoid, int j) {
+-    if (auto data = solenoid.GetOutputData()) {
+-      if (j >= static_cast<int>(channels.size())) {
+-        channels.resize(j + 1);
+-      }
+-      channels[j] = (outputsEnabled && data->GetValue()) ? 1 : -1;
+-    }
+-  });
+-
+-  if (channels.empty()) {
+-    return false;
+-  }
+-
+-  // show nonexistent channels as empty
+-  for (auto&& ch : channels) {
+-    if (ch == 0) {
+-      ch = -2;
+-    }
+-  }
+-
+-  // build header label
+-  std::string& name = GetStorage().GetString("name");
+-  char label[128];
+-  if (!name.empty()) {
+-    wpi::format_to_n_c_str(label, sizeof(label), "{} [{}]###header", name,
+-                           index);
+-  } else {
+-    wpi::format_to_n_c_str(label, sizeof(label), "PCM[{}]###header", index);
+-  }
+-
+-  // header
+-  bool open = CollapsingHeader(label);
+-
+-  PopupEditName("header", &name);
+-
+-  ImGui::SetItemAllowOverlap();
+-  ImGui::SameLine();
+-
+-  // show channels as LED indicators
+-  static const ImU32 colors[] = {IM_COL32(255, 255, 102, 255),
+-                                 IM_COL32(128, 128, 128, 255)};
+-  DrawLEDs(channels.data(), channels.size(), channels.size(), colors);
+-
+-  if (open) {
+-    ImGui::PushItemWidth(ImGui::GetFontSize() * 4);
+-    model->ForEachSolenoid([&](SolenoidModel& solenoid, int j) {
+-      if (auto data = solenoid.GetOutputData()) {
+-        PushID(j);
+-        char label[64];
+-        NameSetting name{data->GetName()};
+-        name.GetLabel(label, sizeof(label), "Solenoid", j);
+-        data->LabelText(label, "%s", channels[j] == 1 ? "On" : "Off");
+-        name.PopupEditName(j);
+-        PopID();
+-      }
+-    });
+-    ImGui::PopItemWidth();
+-  }
+-
+-  return true;
+-}
+-
+-void glass::DisplayPCMsSolenoids(PCMsModel* model, bool outputsEnabled,
+-                                 std::string_view noneMsg) {
+-  bool hasAny = false;
+-  model->ForEachPCM([&](PCMModel& pcm, int i) {
+-    PushID(i);
+-    if (DisplayPCMSolenoids(&pcm, i, outputsEnabled)) {
+-      hasAny = true;
+-    }
+-    PopID();
+-  });
+-  if (!hasAny && !noneMsg.empty()) {
+-    ImGui::TextUnformatted(noneMsg.data(), noneMsg.data() + noneMsg.size());
+-  }
+-}
+-
+-void glass::DisplayCompressorDevice(PCMModel* model, int index,
+-                                    bool outputsEnabled) {
+-  auto compressor = model->GetCompressor();
+-  if (!compressor || !compressor->Exists()) {
+-    return;
+-  }
+-  DisplayCompressorDevice(compressor, index, outputsEnabled);
+-}
+-
+-void glass::DisplayCompressorDevice(CompressorModel* model, int index,
+-                                    bool outputsEnabled) {
+-  char name[32];
+-  wpi::format_to_n_c_str(name, sizeof(name), "Compressor[{}]", index);
+-
+-  if (BeginDevice(name)) {
+-    // output enabled
+-    if (auto runningData = model->GetRunningData()) {
+-      bool value = outputsEnabled && runningData->GetValue();
+-      if (DeviceBoolean("Running", false, &value, runningData)) {
+-        model->SetRunning(value);
+-      }
+-    }
+-
+-    // closed loop enabled
+-    if (auto enabledData = model->GetEnabledData()) {
+-      int value = enabledData->GetValue() ? 1 : 0;
+-      static const char* enabledOptions[] = {"disabled", "enabled"};
+-      if (DeviceEnum("Closed Loop", true, &value, enabledOptions, 2,
+-                     enabledData)) {
+-        model->SetEnabled(value != 0);
+-      }
+-    }
+-
+-    // pressure switch
+-    if (auto pressureSwitchData = model->GetPressureSwitchData()) {
+-      int value = pressureSwitchData->GetValue() ? 1 : 0;
+-      static const char* switchOptions[] = {"full", "low"};
+-      if (DeviceEnum("Pressure", false, &value, switchOptions, 2,
+-                     pressureSwitchData)) {
+-        model->SetPressureSwitch(value != 0);
+-      }
+-    }
+-
+-    // compressor current
+-    if (auto currentData = model->GetCurrentData()) {
+-      double value = currentData->GetValue();
+-      if (DeviceDouble("Current (A)", false, &value, currentData)) {
+-        model->SetCurrent(value);
+-      }
+-    }
+-
+-    EndDevice();
+-  }
+-}
+-
+-void glass::DisplayCompressorsDevice(PCMsModel* model, bool outputsEnabled) {
+-  model->ForEachPCM([&](PCMModel& pcm, int i) {
+-    DisplayCompressorDevice(&pcm, i, outputsEnabled);
+-  });
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/PWM.cpp b/glass/src/lib/native/cpp/hardware/PWM.cpp
+deleted file mode 100644
+index f719a2b15..000000000
+--- a/glass/src/lib/native/cpp/hardware/PWM.cpp
++++ /dev/null
+@@ -1,65 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/PWM.h"
+-
+-#include <imgui.h>
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-#include "glass/Storage.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayPWM(PWMModel* model, int index, bool outputsEnabled) {
+-  auto data = model->GetSpeedData();
+-  if (!data) {
+-    return;
+-  }
+-
+-  // build label
+-  std::string& name = GetStorage().GetString("name");
+-  char label[128];
+-  if (!name.empty()) {
+-    wpi::format_to_n_c_str(label, sizeof(label), "{} [{}]###name", name, index);
+-  } else {
+-    wpi::format_to_n_c_str(label, sizeof(label), "PWM[{}]###name", index);
+-  }
+-
+-  int led = model->GetAddressableLED();
+-
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-  if (led >= 0) {
+-    ImGui::LabelText(label, "LED[%d]", led);
+-  } else {
+-    float val = outputsEnabled ? data->GetValue() : 0;
+-    data->LabelText(label, "%0.3f", val);
+-  }
+-  if (PopupEditName("name", &name)) {
+-    data->SetName(name);
+-  }
+-}
+-
+-void glass::DisplayPWMs(PWMsModel* model, bool outputsEnabled,
+-                        std::string_view noneMsg) {
+-  bool hasAny = false;
+-  bool first = true;
+-  model->ForEachPWM([&](PWMModel& pwm, int i) {
+-    hasAny = true;
+-    PushID(i);
+-
+-    if (!first) {
+-      ImGui::Separator();
+-    } else {
+-      first = false;
+-    }
+-
+-    DisplayPWM(&pwm, i, outputsEnabled);
+-    PopID();
+-  });
+-  if (!hasAny && !noneMsg.empty()) {
+-    ImGui::TextUnformatted(noneMsg.data(), noneMsg.data() + noneMsg.size());
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/PowerDistribution.cpp b/glass/src/lib/native/cpp/hardware/PowerDistribution.cpp
+deleted file mode 100644
+index 90aea0ecf..000000000
+--- a/glass/src/lib/native/cpp/hardware/PowerDistribution.cpp
++++ /dev/null
+@@ -1,95 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/PowerDistribution.h"
+-
+-#include <algorithm>
+-
+-#include <imgui.h>
+-#include <wpi/StringExtras.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-#include "glass/support/NameSetting.h"
+-
+-using namespace glass;
+-
+-static float DisplayChannel(PowerDistributionModel& pdp, int channel) {
+-  float width = 0;
+-  if (auto currentData = pdp.GetCurrentData(channel)) {
+-    ImGui::PushID(channel);
+-    NameSetting leftName{currentData->GetName()};
+-    char name[64];
+-    leftName.GetLabel(name, sizeof(name), "", channel);
+-    double val = currentData->GetValue();
+-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-    if (currentData->InputDouble(name, &val, 0, 0, "%.3f")) {
+-      pdp.SetCurrent(channel, val);
+-    }
+-    width = ImGui::GetItemRectSize().x;
+-    leftName.PopupEditName(channel);
+-    ImGui::PopID();
+-  }
+-  return width;
+-}
+-
+-void glass::DisplayPowerDistribution(PowerDistributionModel* model, int index) {
+-  char name[128];
+-  wpi::format_to_n_c_str(name, sizeof(name), "PowerDistribution[{}]", index);
+-
+-  if (CollapsingHeader(name)) {
+-    // temperature
+-    if (auto tempData = model->GetTemperatureData()) {
+-      double value = tempData->GetValue();
+-      ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-      if (tempData->InputDouble("Temp", &value, 0, 0, "%.3f")) {
+-        model->SetTemperature(value);
+-      }
+-    }
+-
+-    // voltage
+-    if (auto voltageData = model->GetVoltageData()) {
+-      double value = voltageData->GetValue();
+-      ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-      if (voltageData->InputDouble("Voltage", &value, 0, 0, "%.3f")) {
+-        model->SetVoltage(value);
+-      }
+-    }
+-
+-    // channel currents; show as two columns laid out like PowerDistribution
+-    const int numChannels = model->GetNumChannels();
+-    ImGui::Text("Channel Current (A)");
+-    ImGui::Columns(2, "channels", false);
+-    float maxWidth = ImGui::GetFontSize() * 13;
+-    for (int left = 0, right = numChannels - 1; left < right; ++left, --right) {
+-      float leftWidth = DisplayChannel(*model, left);
+-      ImGui::NextColumn();
+-
+-      float rightWidth = DisplayChannel(*model, right);
+-      ImGui::NextColumn();
+-
+-      float width =
+-          (std::max)(leftWidth, rightWidth) * 2 + ImGui::GetFontSize() * 4;
+-      if (width > maxWidth) {
+-        maxWidth = width;
+-      }
+-    }
+-    ImGui::Columns(1);
+-    ImGui::Dummy(ImVec2(maxWidth, 0));
+-  }
+-}
+-
+-void glass::DisplayPowerDistributions(PowerDistributionsModel* model,
+-                                      std::string_view noneMsg) {
+-  bool hasAny = false;
+-  model->ForEachPowerDistribution([&](PowerDistributionModel& pdp, int i) {
+-    hasAny = true;
+-    PushID(i);
+-    DisplayPowerDistribution(&pdp, i);
+-    PopID();
+-  });
+-  if (!hasAny && !noneMsg.empty()) {
+-    ImGui::TextUnformatted(noneMsg.data(), noneMsg.data() + noneMsg.size());
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/Relay.cpp b/glass/src/lib/native/cpp/hardware/Relay.cpp
+deleted file mode 100644
+index e071de7d3..000000000
+--- a/glass/src/lib/native/cpp/hardware/Relay.cpp
++++ /dev/null
+@@ -1,83 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/Relay.h"
+-
+-#include <imgui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-#include "glass/Storage.h"
+-#include "glass/support/ExtraGuiWidgets.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayRelay(RelayModel* model, int index, bool outputsEnabled) {
+-  auto forwardData = model->GetForwardData();
+-  auto reverseData = model->GetReverseData();
+-
+-  if (!forwardData && !reverseData) {
+-    return;
+-  }
+-
+-  bool forward = false;
+-  bool reverse = false;
+-  if (outputsEnabled) {
+-    if (forwardData) {
+-      forward = forwardData->GetValue();
+-    }
+-    if (reverseData) {
+-      reverse = reverseData->GetValue();
+-    }
+-  }
+-
+-  std::string& name = GetStorage().GetString("name");
+-  ImGui::PushID("name");
+-  if (!name.empty()) {
+-    ImGui::Text("%s [%d]", name.c_str(), index);
+-  } else {
+-    ImGui::Text("Relay[%d]", index);
+-  }
+-  ImGui::PopID();
+-  if (PopupEditName("name", &name)) {
+-    if (forwardData) {
+-      forwardData->SetName(name);
+-    }
+-    if (reverseData) {
+-      reverseData->SetName(name);
+-    }
+-  }
+-  ImGui::SameLine();
+-
+-  // show forward and reverse as LED indicators
+-  static const ImU32 colors[] = {IM_COL32(255, 255, 102, 255),
+-                                 IM_COL32(255, 0, 0, 255),
+-                                 IM_COL32(128, 128, 128, 255)};
+-  int values[2] = {reverseData ? (reverse ? 2 : -2) : -3,
+-                   forwardData ? (forward ? 1 : -1) : -3};
+-  DataSource* sources[2] = {reverseData, forwardData};
+-  DrawLEDSources(values, sources, 2, 2, colors);
+-}
+-
+-void glass::DisplayRelays(RelaysModel* model, bool outputsEnabled,
+-                          std::string_view noneMsg) {
+-  bool hasAny = false;
+-  bool first = true;
+-  model->ForEachRelay([&](RelayModel& relay, int i) {
+-    hasAny = true;
+-
+-    if (!first) {
+-      ImGui::Separator();
+-    } else {
+-      first = false;
+-    }
+-
+-    PushID(i);
+-    DisplayRelay(&relay, i, outputsEnabled);
+-    PopID();
+-  });
+-  if (!hasAny && !noneMsg.empty()) {
+-    ImGui::TextUnformatted(noneMsg.data(), noneMsg.data() + noneMsg.size());
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/hardware/RoboRio.cpp b/glass/src/lib/native/cpp/hardware/RoboRio.cpp
+deleted file mode 100644
+index d0667d9be..000000000
+--- a/glass/src/lib/native/cpp/hardware/RoboRio.cpp
++++ /dev/null
+@@ -1,84 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/hardware/RoboRio.h"
+-
+-#include <imgui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-static void DisplayRail(RoboRioRailModel& rail, const char* name) {
+-  if (CollapsingHeader(name)) {
+-    ImGui::PushID(name);
+-    if (auto data = rail.GetVoltageData()) {
+-      double val = data->GetValue();
+-      if (data->InputDouble("Voltage (V)", &val)) {
+-        rail.SetVoltage(val);
+-      }
+-    }
+-
+-    if (auto data = rail.GetCurrentData()) {
+-      double val = data->GetValue();
+-      if (data->InputDouble("Current (A)", &val)) {
+-        rail.SetCurrent(val);
+-      }
+-    }
+-
+-    if (auto data = rail.GetActiveData()) {
+-      static const char* options[] = {"inactive", "active"};
+-      int val = data->GetValue() ? 1 : 0;
+-      if (data->Combo("Active", &val, options, 2)) {
+-        rail.SetActive(val);
+-      }
+-    }
+-
+-    if (auto data = rail.GetFaultsData()) {
+-      int val = data->GetValue();
+-      if (data->InputInt("Faults", &val)) {
+-        rail.SetFaults(val);
+-      }
+-    }
+-    ImGui::PopID();
+-  }
+-}
+-
+-void glass::DisplayRoboRio(RoboRioModel* model) {
+-  ImGui::Button("User Button");
+-  model->SetUserButton(ImGui::IsItemActive());
+-
+-  ImGui::PushItemWidth(ImGui::GetFontSize() * 8);
+-
+-  if (CollapsingHeader("RoboRIO Input")) {
+-    ImGui::PushID("RoboRIO Input");
+-    if (auto data = model->GetVInVoltageData()) {
+-      double val = data->GetValue();
+-      if (data->InputDouble("Voltage (V)", &val)) {
+-        model->SetVInVoltage(val);
+-      }
+-    }
+-
+-    if (auto data = model->GetVInCurrentData()) {
+-      double val = data->GetValue();
+-      if (data->InputDouble("Current (A)", &val)) {
+-        model->SetVInCurrent(val);
+-      }
+-    }
+-    ImGui::PopID();
+-  }
+-
+-  if (auto rail = model->GetUser6VRail()) {
+-    DisplayRail(*rail, "6V Rail");
+-  }
+-  if (auto rail = model->GetUser5VRail()) {
+-    DisplayRail(*rail, "5V Rail");
+-  }
+-  if (auto rail = model->GetUser3V3Rail()) {
+-    DisplayRail(*rail, "3.3V Rail");
+-  }
+-
+-  ImGui::PopItemWidth();
+-}
+diff --git a/glass/src/lib/native/cpp/other/CommandScheduler.cpp b/glass/src/lib/native/cpp/other/CommandScheduler.cpp
+deleted file mode 100644
+index 83e411863..000000000
+--- a/glass/src/lib/native/cpp/other/CommandScheduler.cpp
++++ /dev/null
+@@ -1,40 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/CommandScheduler.h"
+-
+-#include <imgui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayCommandScheduler(CommandSchedulerModel* m) {
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 20);
+-  ImGui::Text("Scheduled Commands: ");
+-  ImGui::Separator();
+-  ImGui::Spacing();
+-
+-  if (m->Exists()) {
+-    float pos = ImGui::GetContentRegionAvail().x * 0.97f -
+-                ImGui::CalcTextSize("Cancel").x;
+-
+-    const auto& commands = m->GetCurrentCommands();
+-    for (size_t i = 0; i < commands.size(); ++i) {
+-      ImGui::Text("%s", commands[i].c_str());
+-      ImGui::SameLine(pos);
+-
+-      ImGui::PushID(i);
+-      if (ImGui::Button("Cancel")) {
+-        m->CancelCommand(i);
+-      }
+-      ImGui::PopID();
+-    }
+-  } else {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown Scheduler");
+-    ImGui::PopStyleColor();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/other/CommandSelector.cpp b/glass/src/lib/native/cpp/other/CommandSelector.cpp
+deleted file mode 100644
+index d2124c39f..000000000
+--- a/glass/src/lib/native/cpp/other/CommandSelector.cpp
++++ /dev/null
+@@ -1,35 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/CommandSelector.h"
+-
+-#include <imgui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayCommandSelector(CommandSelectorModel* m) {
+-  if (auto name = m->GetName()) {
+-    ImGui::Text("%s", name);
+-  }
+-  if (m->Exists()) {
+-    if (auto run = m->GetRunningData()) {
+-      bool running = run->GetValue();
+-      if (ImGui::Button(running ? "Cancel" : "Run")) {
+-        running = !running;
+-        m->SetRunning(running);
+-      }
+-      ImGui::SameLine();
+-      if (running) {
+-        ImGui::Text("Running...");
+-      }
+-    }
+-  } else {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown Command");
+-    ImGui::PopStyleColor();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/other/Drive.cpp b/glass/src/lib/native/cpp/other/Drive.cpp
+deleted file mode 100644
+index d54b2da82..000000000
+--- a/glass/src/lib/native/cpp/other/Drive.cpp
++++ /dev/null
+@@ -1,148 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/Drive.h"
+-
+-#include <array>
+-#include <cmath>
+-
+-#define IMGUI_DEFINE_MATH_OPERATORS
+-
+-#include <imgui.h>
+-#include <imgui_internal.h>
+-#include <numbers>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayDrive(DriveModel* m) {
+-  // Check if the model exists.
+-  if (!m->Exists()) {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown Drive");
+-    ImGui::PopStyleColor();
+-    return;
+-  }
+-
+-  const auto& wheels = m->GetWheels();
+-  ImDrawList* draw = ImGui::GetWindowDrawList();
+-  ImColor color = ImGui::GetStyle().Colors[ImGuiCol_Text];
+-
+-  // Get window position and size.
+-  ImVec2 pos = ImGui::GetWindowPos();
+-  ImVec2 size = ImGui::GetWindowSize();
+-
+-  // Calculate corners for drivetrain body.
+-  float x1 = pos.x + 60.0f;
+-  float y1 = pos.y + ImGui::GetFontSize() * 2.0f;
+-  float x2 = pos.x + size.x - 60.0f;
+-  float y2 = pos.y + size.y - ImGui::GetFontSize() * 2.0f * wheels.size();
+-
+-  // Draw the primary rectangle.
+-  draw->AddRect(ImVec2(x1, y1), ImVec2(x2, y2), color);
+-
+-  // Display the speed vector.
+-  ImVec2 center{(x1 + x2) / 2.0f, (y1 + y2) / 2.0f};
+-  ImVec2 speed = m->GetSpeedVector();
+-  ImVec2 arrow = center + speed * 50.0f;
+-
+-  draw->AddLine(center, arrow, color, 2.0f);
+-
+-  auto drawArrow = [draw, &color](const ImVec2& arrowPos, float angle) {
+-    draw->AddTriangleFilled(
+-        arrowPos,
+-        arrowPos + ImRotate(ImVec2(0.0f, 7.5f),
+-                            std::cos(angle + std::numbers::pi / 4),
+-                            std::sin(angle + std::numbers::pi / 4)),
+-        arrowPos + ImRotate(ImVec2(0.0f, 7.5f),
+-                            std::cos(angle - std::numbers::pi / 4),
+-                            std::sin(angle - std::numbers::pi / 4)),
+-        color);
+-  };
+-
+-  // Draw the arrow if there is any translation; draw an X otherwise.
+-  if (std::abs(speed.y) > 0 || std::abs(speed.x) > 0) {
+-    drawArrow(arrow, std::atan2(speed.x, -speed.y));
+-  } else {
+-    ImVec2 a{7.5f, +7.5f};
+-    ImVec2 b{7.5f, -7.5f};
+-    draw->AddLine(center + a, center - a, color);
+-    draw->AddLine(center + b, center - b, color);
+-  }
+-
+-  // Calculate the positions of the top-left corner of the wheels.
+-  std::array<ImVec2, 4> corners{
+-      ImVec2(x1 - 25.0f, y1 + 10.0f), ImVec2(x1 - 25.0f, y2 - 70.0f),
+-      ImVec2(x2 + 00.0f, y1 + 10.0f), ImVec2(x2 + 00.0f, y2 - 70.0f)};
+-
+-  // Draw the wheels.
+-  for (auto&& corner : corners) {
+-    draw->AddRect(corner, corner + ImVec2(25.0f, 60.0f), color);
+-  }
+-
+-  // Show rotation
+-  double rotation = m->GetRotation();
+-  if (rotation != 0) {
+-    float radius = 60.0f;
+-    double a1 = 0.0;
+-    double a2 = std::numbers::pi / 2 * rotation;
+-
+-    // PathArcTo requires a_min <= a_max, and rotation can be negative
+-    if (a1 > a2) {
+-      draw->PathArcTo(center, radius, a2, a1, 20);
+-      draw->PathStroke(color, false);
+-      draw->PathArcTo(center, radius, a2 + std::numbers::pi,
+-                      a1 + std::numbers::pi, 20);
+-      draw->PathStroke(color, false);
+-    } else {
+-      draw->PathArcTo(center, radius, a1, a2, 20);
+-      draw->PathStroke(color, false);
+-      draw->PathArcTo(center, radius, a1 + std::numbers::pi,
+-                      a2 + std::numbers::pi, 20);
+-      draw->PathStroke(color, false);
+-    }
+-
+-    double adder = rotation < 0 ? std::numbers::pi : 0;
+-
+-    auto arrowPos =
+-        center + ImVec2(radius * -std::cos(a2), radius * -std::sin(a2));
+-    drawArrow(arrowPos, a2 + adder);
+-
+-    a2 += std::numbers::pi;
+-    arrowPos = center + ImVec2(radius * -std::cos(a2), radius * -std::sin(a2));
+-    drawArrow(arrowPos, a2 + adder);
+-  }
+-
+-  // Set the buttons and sliders to read-only if the model is read-only.
+-  if (m->IsReadOnly()) {
+-    ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(210, 210, 210, 255));
+-  }
+-
+-  // Add sliders for the wheel percentages.
+-  ImGui::SetCursorPosY(y2 - pos.y + ImGui::GetFontSize() * 0.5);
+-  for (auto&& wheel : wheels) {
+-    if (wheel.percent) {
+-      ImGui::PushID(wheel.name.c_str());
+-      if (ImGui::Button("Zero")) {
+-        wheel.setter(0.0);
+-      }
+-      ImGui::PopID();
+-
+-      ImGui::SameLine();
+-      ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0f);
+-      float value = wheel.percent->GetValue();
+-      if (wheel.percent->SliderFloat(wheel.name.c_str(), &value, -1.0f, 1.0f)) {
+-        wheel.setter(value);
+-      }
+-    }
+-  }
+-
+-  if (m->IsReadOnly()) {
+-    ImGui::PopStyleColor();
+-    ImGui::PopItemFlag();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/other/FMS.cpp b/glass/src/lib/native/cpp/other/FMS.cpp
+deleted file mode 100644
+index 4e702e5b4..000000000
+--- a/glass/src/lib/native/cpp/other/FMS.cpp
++++ /dev/null
+@@ -1,158 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/FMS.h"
+-
+-#include <imgui.h>
+-#include <imgui_stdlib.h>
+-#include <wpi/SmallString.h>
+-
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-static const char* stations[] = {"Invalid", "Red 1",  "Red 2", "Red 3",
+-                                 "Blue 1",  "Blue 2", "Blue 3"};
+-
+-void glass::DisplayFMS(FMSModel* model, bool editableDsAttached) {
+-  if (!model->Exists() || model->IsReadOnly()) {
+-    return DisplayFMSReadOnly(model);
+-  }
+-
+-  // FMS Attached
+-  if (auto data = model->GetFmsAttachedData()) {
+-    bool val = data->GetValue();
+-    if (ImGui::Checkbox("FMS Attached", &val)) {
+-      model->SetFmsAttached(val);
+-    }
+-    data->EmitDrag();
+-  }
+-
+-  // DS Attached
+-  if (auto data = model->GetDsAttachedData()) {
+-    bool val = data->GetValue();
+-    if (editableDsAttached) {
+-      if (ImGui::Checkbox("DS Attached", &val)) {
+-        model->SetDsAttached(val);
+-      }
+-      data->EmitDrag();
+-    } else {
+-      ImGui::Selectable("DS Attached: ");
+-      data->EmitDrag();
+-      ImGui::SameLine();
+-      ImGui::TextUnformatted(val ? "Yes" : "No");
+-    }
+-  }
+-
+-  // Alliance Station
+-  if (auto data = model->GetAllianceStationIdData()) {
+-    int val = data->GetValue();
+-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+-    if (ImGui::Combo("Alliance Station", &val, stations, 7)) {
+-      model->SetAllianceStationId(val);
+-    }
+-    data->EmitDrag();
+-  }
+-
+-  // Match Time
+-  if (auto data = model->GetMatchTimeData()) {
+-    double val = data->GetValue();
+-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+-    if (ImGui::InputDouble("Match Time", &val, 0, 0, "%.1f")) {
+-      model->SetMatchTime(val);
+-    }
+-    data->EmitDrag();
+-    bool enabled = false;
+-    if (auto enabledData = model->GetEnabledData()) {
+-      enabled = enabledData->GetValue();
+-    }
+-    ImGui::SameLine();
+-    if (ImGui::Button("Auto") && !enabled) {
+-      model->SetMatchTime(15.0);
+-    }
+-    ImGui::SameLine();
+-    if (ImGui::Button("Teleop") && !enabled) {
+-      model->SetMatchTime(135.0);
+-    }
+-  }
+-
+-  // Game Specific Message
+-  wpi::SmallString<64> gameSpecificMessageBuf;
+-  std::string gameSpecificMessage{
+-      model->GetGameSpecificMessage(gameSpecificMessageBuf)};
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+-  if (ImGui::InputText("Game Specific", &gameSpecificMessage)) {
+-    model->SetGameSpecificMessage(gameSpecificMessage);
+-  }
+-}
+-
+-void glass::DisplayFMSReadOnly(FMSModel* model) {
+-  bool exists = model->Exists();
+-  if (!exists) {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-  }
+-
+-  if (auto data = model->GetEStopData()) {
+-    ImGui::Selectable("E-Stopped: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    ImGui::TextUnformatted(exists ? (data->GetValue() ? "Yes" : "No") : "?");
+-  }
+-  if (auto data = model->GetEnabledData()) {
+-    ImGui::Selectable("Robot Enabled: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    ImGui::TextUnformatted(exists ? (data->GetValue() ? "Yes" : "No") : "?");
+-  }
+-  if (auto data = model->GetTestData()) {
+-    ImGui::Selectable("Test Mode: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    ImGui::TextUnformatted(exists ? (data->GetValue() ? "Yes" : "No") : "?");
+-  }
+-  if (auto data = model->GetAutonomousData()) {
+-    ImGui::Selectable("Autonomous Mode: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    ImGui::TextUnformatted(exists ? (data->GetValue() ? "Yes" : "No") : "?");
+-  }
+-  if (auto data = model->GetFmsAttachedData()) {
+-    ImGui::Selectable("FMS Attached: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    ImGui::TextUnformatted(exists ? (data->GetValue() ? "Yes" : "No") : "?");
+-  }
+-  if (auto data = model->GetDsAttachedData()) {
+-    ImGui::Selectable("DS Attached: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    ImGui::TextUnformatted(exists ? (data->GetValue() ? "Yes" : "No") : "?");
+-  }
+-  if (auto data = model->GetAllianceStationIdData()) {
+-    ImGui::Selectable("Alliance Station: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    ImGui::TextUnformatted(exists ? stations[static_cast<int>(data->GetValue())]
+-                                  : "?");
+-  }
+-  if (auto data = model->GetMatchTimeData()) {
+-    ImGui::Selectable("Match Time: ");
+-    data->EmitDrag();
+-    ImGui::SameLine();
+-    if (exists) {
+-      ImGui::Text("%.1f", data->GetValue());
+-    } else {
+-      ImGui::TextUnformatted("?");
+-    }
+-  }
+-
+-  wpi::SmallString<64> gameSpecificMessageBuf;
+-  std::string_view gameSpecificMessage =
+-      model->GetGameSpecificMessage(gameSpecificMessageBuf);
+-  ImGui::Text("Game Specific: %s", exists ? gameSpecificMessage.data() : "?");
+-
+-  if (!exists) {
+-    ImGui::PopStyleColor();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/other/Field2D.cpp b/glass/src/lib/native/cpp/other/Field2D.cpp
+deleted file mode 100644
+index 67d021200..000000000
+--- a/glass/src/lib/native/cpp/other/Field2D.cpp
++++ /dev/null
+@@ -1,1298 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/Field2D.h"
+-
+-#include <algorithm>
+-#include <cmath>
+-#include <cstdio>
+-#include <memory>
+-#include <string_view>
+-#include <utility>
+-
+-#include <fields/fields.h>
+-#include <fmt/format.h>
+-#include <frc/geometry/Pose2d.h>
+-#include <frc/geometry/Rotation2d.h>
+-#include <frc/geometry/Translation2d.h>
+-
+-#define IMGUI_DEFINE_MATH_OPERATORS
+-#include <imgui.h>
+-#include <imgui_internal.h>
+-#include <imgui_stdlib.h>
+-#include <portable-file-dialogs.h>
+-#include <units/angle.h>
+-#include <units/length.h>
+-#include <wpi/MemoryBuffer.h>
+-#include <wpi/SmallString.h>
+-#include <wpi/StringExtras.h>
+-#include <wpi/StringMap.h>
+-#include <wpi/fs.h>
+-#include <wpi/json.h>
+-#include <wpigui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/Storage.h"
+-#include "glass/support/ColorSetting.h"
+-#include "glass/support/EnumSetting.h"
+-
+-using namespace glass;
+-
+-namespace gui = wpi::gui;
+-
+-namespace {
+-
+-enum DisplayUnits { kDisplayMeters = 0, kDisplayFeet, kDisplayInches };
+-
+-// Per-frame field data (not persistent)
+-struct FieldFrameData {
+-  frc::Translation2d GetPosFromScreen(const ImVec2& cursor) const {
+-    return {
+-        units::meter_t{(std::clamp(cursor.x, min.x, max.x) - min.x) / scale},
+-        units::meter_t{(max.y - std::clamp(cursor.y, min.y, max.y)) / scale}};
+-  }
+-  ImVec2 GetScreenFromPos(const frc::Translation2d& pos) const {
+-    return {min.x + scale * pos.X().to<float>(),
+-            max.y - scale * pos.Y().to<float>()};
+-  }
+-
+-  // in screen coordinates
+-  ImVec2 imageMin;
+-  ImVec2 imageMax;
+-  ImVec2 min;
+-  ImVec2 max;
+-
+-  float scale;  // scaling from meters to screen units
+-};
+-
+-// Pose drag target info
+-struct SelectedTargetInfo {
+-  FieldObjectModel* objModel = nullptr;
+-  std::string name;
+-  size_t index;
+-  units::radian_t rot;
+-  ImVec2 poseCenter;  // center of the pose (screen coordinates)
+-  ImVec2 center;      // center of the target (screen coordinates)
+-  float radius;       // target radius
+-  float dist;         // distance from center to mouse
+-  int corner;         // corner (1 = center)
+-};
+-
+-// Pose drag state
+-struct PoseDragState {
+-  SelectedTargetInfo target;
+-  ImVec2 initialOffset;
+-  units::radian_t initialAngle = 0_rad;
+-};
+-
+-// Popup edit state
+-class PopupState {
+- public:
+-  void Open(SelectedTargetInfo* target, const frc::Translation2d& pos);
+-  void Close();
+-
+-  SelectedTargetInfo* GetTarget() { return &m_target; }
+-  FieldObjectModel* GetInsertModel() { return m_insertModel; }
+-  std::span<const frc::Pose2d> GetInsertPoses() const { return m_insertPoses; }
+-
+-  void Display(Field2DModel* model, const FieldFrameData& ffd);
+-
+- private:
+-  void DisplayTarget(Field2DModel* model, const FieldFrameData& ffd);
+-  void DisplayInsert(Field2DModel* model);
+-
+-  SelectedTargetInfo m_target;
+-
+-  // for insert
+-  FieldObjectModel* m_insertModel;
+-  std::vector<frc::Pose2d> m_insertPoses;
+-  std::string m_insertName;
+-  int m_insertIndex;
+-};
+-
+-struct DisplayOptions {
+-  explicit DisplayOptions(const gui::Texture& texture) : texture{texture} {}
+-
+-  enum Style { kBoxImage = 0, kLine, kLineClosed, kTrack, kHidden };
+-
+-  static constexpr Style kDefaultStyle = kBoxImage;
+-  static constexpr float kDefaultWeight = 4.0f;
+-  static constexpr float kDefaultColorFloat[] = {255, 0, 0, 255};
+-  static constexpr ImU32 kDefaultColor = IM_COL32(255, 0, 0, 255);
+-  static constexpr auto kDefaultWidth = 0.6858_m;
+-  static constexpr auto kDefaultLength = 0.8204_m;
+-  static constexpr bool kDefaultArrows = true;
+-  static constexpr int kDefaultArrowSize = 50;
+-  static constexpr float kDefaultArrowWeight = 4.0f;
+-  static constexpr float kDefaultArrowColorFloat[] = {0, 255, 0, 255};
+-  static constexpr ImU32 kDefaultArrowColor = IM_COL32(0, 255, 0, 255);
+-  static constexpr bool kDefaultSelectable = true;
+-
+-  Style style = kDefaultStyle;
+-  float weight = kDefaultWeight;
+-  int color = kDefaultColor;
+-
+-  units::meter_t width = kDefaultWidth;
+-  units::meter_t length = kDefaultLength;
+-
+-  bool arrows = kDefaultArrows;
+-  int arrowSize = kDefaultArrowSize;
+-  float arrowWeight = kDefaultArrowWeight;
+-  int arrowColor = kDefaultArrowColor;
+-
+-  bool selectable = kDefaultSelectable;
+-
+-  const gui::Texture& texture;
+-};
+-
+-// Per-frame pose data (not persistent)
+-class PoseFrameData {
+- public:
+-  explicit PoseFrameData(const frc::Pose2d& pose, FieldObjectModel& model,
+-                         size_t index, const FieldFrameData& ffd,
+-                         const DisplayOptions& displayOptions);
+-  void SetPosition(const frc::Translation2d& pos);
+-  void SetRotation(units::radian_t rot);
+-  const frc::Rotation2d& GetRotation() const { return m_pose.Rotation(); }
+-  const frc::Pose2d& GetPose() const { return m_pose; }
+-  float GetHitRadius() const { return m_hitRadius; }
+-  void UpdateFrameData();
+-  std::pair<int, float> IsHovered(const ImVec2& cursor) const;
+-  SelectedTargetInfo GetDragTarget(int corner, float dist) const;
+-  void HandleDrag(const ImVec2& cursor);
+-  void Draw(ImDrawList* drawList, std::vector<ImVec2>* center,
+-            std::vector<ImVec2>* left, std::vector<ImVec2>* right) const;
+-
+-  // in window coordinates
+-  ImVec2 m_center;
+-  ImVec2 m_corners[6];  // 5 and 6 are used for track width
+-  ImVec2 m_arrow[3];
+-
+- private:
+-  FieldObjectModel& m_model;
+-  size_t m_index;
+-  const FieldFrameData& m_ffd;
+-  const DisplayOptions& m_displayOptions;
+-
+-  // scaled width/2 and length/2, in screen units
+-  float m_width2;
+-  float m_length2;
+-
+-  float m_hitRadius;
+-
+-  frc::Pose2d m_pose;
+-};
+-
+-class ObjectInfo {
+- public:
+-  explicit ObjectInfo(Storage& storage);
+-
+-  DisplayOptions GetDisplayOptions() const;
+-  void DisplaySettings();
+-  void DrawLine(ImDrawList* drawList, std::span<const ImVec2> points) const;
+-
+-  void LoadImage();
+-  const gui::Texture& GetTexture() const { return m_texture; }
+-
+- private:
+-  void Reset();
+-  bool LoadImageImpl(const std::string& fn);
+-
+-  std::unique_ptr<pfd::open_file> m_fileOpener;
+-
+-  // in meters
+-  float& m_width;
+-  float& m_length;
+-
+-  EnumSetting m_style;  // DisplayOptions::Style
+-  float& m_weight;
+-  ColorSetting m_color;
+-
+-  bool& m_arrows;
+-  int& m_arrowSize;
+-  float& m_arrowWeight;
+-  ColorSetting m_arrowColor;
+-
+-  bool& m_selectable;
+-
+-  std::string& m_filename;
+-  gui::Texture m_texture;
+-};
+-
+-class FieldInfo {
+- public:
+-  static constexpr auto kDefaultWidth = 16.541052_m;
+-  static constexpr auto kDefaultHeight = 8.211_m;
+-
+-  explicit FieldInfo(Storage& storage);
+-
+-  void DisplaySettings();
+-
+-  void LoadImage();
+-  FieldFrameData GetFrameData(ImVec2 min, ImVec2 max) const;
+-  void Draw(ImDrawList* drawList, const FieldFrameData& frameData) const;
+-
+-  wpi::StringMap<std::unique_ptr<ObjectInfo>> m_objects;
+-
+- private:
+-  void Reset();
+-  bool LoadImageImpl(const std::string& fn);
+-  bool LoadJson(std::span<const char> is, std::string_view filename);
+-  void LoadJsonFile(std::string_view jsonfile);
+-
+-  std::unique_ptr<pfd::open_file> m_fileOpener;
+-
+-  std::string& m_builtin;
+-  std::string& m_filename;
+-  gui::Texture m_texture;
+-
+-  // in meters
+-  float& m_width;
+-  float& m_height;
+-
+-  // in image pixels
+-  int m_imageWidth;
+-  int m_imageHeight;
+-  int& m_top;
+-  int& m_left;
+-  int& m_bottom;
+-  int& m_right;
+-};
+-
+-}  // namespace
+-
+-static PoseDragState gDragState;
+-static PopupState gPopupState;
+-static DisplayUnits gDisplayUnits = kDisplayMeters;
+-
+-static double ConvertDisplayLength(units::meter_t v) {
+-  switch (gDisplayUnits) {
+-    case kDisplayFeet:
+-      return v.convert<units::feet>().value();
+-    case kDisplayInches:
+-      return v.convert<units::inches>().value();
+-    case kDisplayMeters:
+-    default:
+-      return v.value();
+-  }
+-}
+-
+-static double ConvertDisplayAngle(units::degree_t v) {
+-  return v.value();
+-}
+-
+-static bool InputLength(const char* label, units::meter_t* v, double step = 0.0,
+-                        double step_fast = 0.0, const char* format = "%.6f",
+-                        ImGuiInputTextFlags flags = 0) {
+-  double dv = ConvertDisplayLength(*v);
+-  if (ImGui::InputDouble(label, &dv, step, step_fast, format, flags)) {
+-    switch (gDisplayUnits) {
+-      case kDisplayFeet:
+-        *v = units::foot_t{dv};
+-        break;
+-      case kDisplayInches:
+-        *v = units::inch_t{dv};
+-        break;
+-      case kDisplayMeters:
+-      default:
+-        *v = units::meter_t{dv};
+-        break;
+-    }
+-    return true;
+-  }
+-  return false;
+-}
+-
+-static bool InputFloatLength(const char* label, float* v, double step = 0.0,
+-                             double step_fast = 0.0,
+-                             const char* format = "%.3f",
+-                             ImGuiInputTextFlags flags = 0) {
+-  units::meter_t uv{*v};
+-  if (InputLength(label, &uv, step, step_fast, format, flags)) {
+-    *v = uv.to<float>();
+-    return true;
+-  }
+-  return false;
+-}
+-
+-static bool InputAngle(const char* label, units::degree_t* v, double step = 0.0,
+-                       double step_fast = 0.0, const char* format = "%.6f",
+-                       ImGuiInputTextFlags flags = 0) {
+-  double dv = ConvertDisplayAngle(*v);
+-  if (ImGui::InputDouble(label, &dv, step, step_fast, format, flags)) {
+-    *v = units::degree_t{dv};
+-    return true;
+-  }
+-  return false;
+-}
+-
+-static bool InputPose(frc::Pose2d* pose) {
+-  auto x = pose->X();
+-  auto y = pose->Y();
+-  auto rot = pose->Rotation().Degrees();
+-
+-  bool changed;
+-  changed = InputLength("x", &x);
+-  changed = InputLength("y", &y) || changed;
+-  changed = InputAngle("rot", &rot) || changed;
+-  if (changed) {
+-    *pose = frc::Pose2d{x, y, rot};
+-  }
+-  return changed;
+-}
+-
+-FieldInfo::FieldInfo(Storage& storage)
+-    : m_builtin{storage.GetString("builtin", "2024 Crescendo")},
+-      m_filename{storage.GetString("image")},
+-      m_width{storage.GetFloat("width", kDefaultWidth.to<float>())},
+-      m_height{storage.GetFloat("height", kDefaultHeight.to<float>())},
+-      m_top{storage.GetInt("top", 0)},
+-      m_left{storage.GetInt("left", 0)},
+-      m_bottom{storage.GetInt("bottom", -1)},
+-      m_right{storage.GetInt("right", -1)} {}
+-
+-void FieldInfo::DisplaySettings() {
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10);
+-  if (ImGui::BeginCombo("Image",
+-                        m_builtin.empty() ? "Custom" : m_builtin.c_str())) {
+-    if (ImGui::Selectable("Custom", m_builtin.empty())) {
+-      Reset();
+-    }
+-    for (auto&& field : fields::GetFields()) {
+-      bool selected = field.name == m_builtin;
+-      if (ImGui::Selectable(field.name, selected)) {
+-        Reset();
+-        m_builtin = field.name;
+-      }
+-      if (selected) {
+-        ImGui::SetItemDefaultFocus();
+-      }
+-    }
+-    ImGui::EndCombo();
+-  }
+-  if (m_builtin.empty() && ImGui::Button("Load image...")) {
+-    m_fileOpener = std::make_unique<pfd::open_file>(
+-        "Choose field image", "",
+-        std::vector<std::string>{"Image File",
+-                                 "*.jpg *.jpeg *.png *.bmp *.psd *.tga *.gif "
+-                                 "*.hdr *.pic *.ppm *.pgm",
+-                                 "PathWeaver JSON File", "*.json"});
+-  }
+-  if (ImGui::Button("Reset image")) {
+-    Reset();
+-  }
+-  InputFloatLength("Field Width", &m_width);
+-  InputFloatLength("Field Height", &m_height);
+-  // ImGui::InputInt("Field Top", &m_top);
+-  // ImGui::InputInt("Field Left", &m_left);
+-  // ImGui::InputInt("Field Right", &m_right);
+-  // ImGui::InputInt("Field Bottom", &m_bottom);
+-}
+-
+-void FieldInfo::Reset() {
+-  m_texture = gui::Texture{};
+-  m_builtin.clear();
+-  m_filename.clear();
+-  m_imageWidth = 0;
+-  m_imageHeight = 0;
+-  m_top = 0;
+-  m_left = 0;
+-  m_bottom = -1;
+-  m_right = -1;
+-}
+-
+-void FieldInfo::LoadImage() {
+-  if (m_fileOpener && m_fileOpener->ready(0)) {
+-    auto result = m_fileOpener->result();
+-    if (!result.empty()) {
+-      if (wpi::ends_with(result[0], ".json")) {
+-        LoadJsonFile(result[0]);
+-      } else {
+-        LoadImageImpl(result[0].c_str());
+-        m_top = 0;
+-        m_left = 0;
+-        m_bottom = -1;
+-        m_right = -1;
+-      }
+-    }
+-    m_fileOpener.reset();
+-  }
+-  if (!m_texture) {
+-    if (!m_builtin.empty()) {
+-      for (auto&& field : fields::GetFields()) {
+-        if (field.name == m_builtin) {
+-          auto jsonstr = field.getJson();
+-          auto imagedata = field.getImage();
+-          auto texture = gui::Texture::CreateFromImage(
+-              reinterpret_cast<const unsigned char*>(imagedata.data()),
+-              imagedata.size());
+-          if (texture && LoadJson({jsonstr.data(), jsonstr.size()}, {})) {
+-            m_texture = std::move(texture);
+-            m_imageWidth = m_texture.GetWidth();
+-            m_imageHeight = m_texture.GetHeight();
+-          } else {
+-            m_builtin.clear();
+-          }
+-        }
+-      }
+-    } else if (!m_filename.empty()) {
+-      if (!LoadImageImpl(m_filename)) {
+-        m_filename.clear();
+-      }
+-    }
+-  }
+-}
+-
+-bool FieldInfo::LoadJson(std::span<const char> is, std::string_view filename) {
+-  // parse file
+-  wpi::json j;
+-  try {
+-    j = wpi::json::parse(is);
+-  } catch (const wpi::json::parse_error& e) {
+-    fmt::print(stderr, "GUI: JSON: could not parse: {}\n", e.what());
+-    return false;
+-  }
+-
+-  // top level must be an object
+-  if (!j.is_object()) {
+-    std::fputs("GUI: JSON: does not contain a top object\n", stderr);
+-    return false;
+-  }
+-
+-  // image filename
+-  std::string image;
+-  try {
+-    image = j.at("field-image").get<std::string>();
+-  } catch (const wpi::json::exception& e) {
+-    fmt::print(stderr, "GUI: JSON: could not read field-image: {}\n", e.what());
+-    return false;
+-  }
+-
+-  // corners
+-  int top, left, bottom, right;
+-  try {
+-    top = j.at("field-corners").at("top-left").at(1).get<int>();
+-    left = j.at("field-corners").at("top-left").at(0).get<int>();
+-    bottom = j.at("field-corners").at("bottom-right").at(1).get<int>();
+-    right = j.at("field-corners").at("bottom-right").at(0).get<int>();
+-  } catch (const wpi::json::exception& e) {
+-    fmt::print(stderr, "GUI: JSON: could not read field-corners: {}\n",
+-               e.what());
+-    return false;
+-  }
+-
+-  // size
+-  float width;
+-  float height;
+-  try {
+-    width = j.at("field-size").at(0).get<float>();
+-    height = j.at("field-size").at(1).get<float>();
+-  } catch (const wpi::json::exception& e) {
+-    fmt::print(stderr, "GUI: JSON: could not read field-size: {}\n", e.what());
+-    return false;
+-  }
+-
+-  // units for size
+-  std::string unit;
+-  try {
+-    unit = j.at("field-unit").get<std::string>();
+-  } catch (const wpi::json::exception& e) {
+-    fmt::print(stderr, "GUI: JSON: could not read field-unit: {}\n", e.what());
+-    return false;
+-  }
+-
+-  // convert size units to meters
+-  if (unit == "foot" || unit == "feet") {
+-    width = units::convert<units::feet, units::meters>(width);
+-    height = units::convert<units::feet, units::meters>(height);
+-  }
+-
+-  // check scaling
+-  int fieldWidth = m_right - m_left;
+-  int fieldHeight = m_bottom - m_top;
+-  if (std::abs((fieldWidth / width) - (fieldHeight / height)) > 0.3) {
+-    fmt::print(stderr,
+-               "GUI: Field X and Y scaling substantially different: "
+-               "xscale={} yscale={}\n",
+-               (fieldWidth / width), (fieldHeight / height));
+-  }
+-
+-  if (!filename.empty()) {
+-    // the image filename is relative to the json file
+-    auto pathname = fs::path{filename}.replace_filename(image).string();
+-
+-    // load field image
+-    if (!LoadImageImpl(pathname.c_str())) {
+-      return false;
+-    }
+-    m_filename = pathname;
+-  }
+-
+-  // save to field info
+-  m_top = top;
+-  m_left = left;
+-  m_bottom = bottom;
+-  m_right = right;
+-  m_width = width;
+-  m_height = height;
+-  return true;
+-}
+-
+-void FieldInfo::LoadJsonFile(std::string_view jsonfile) {
+-  std::error_code ec;
+-  std::unique_ptr<wpi::MemoryBuffer> fileBuffer =
+-      wpi::MemoryBuffer::GetFile(jsonfile, ec);
+-  if (fileBuffer == nullptr || ec) {
+-    std::fputs("GUI: could not open field JSON file\n", stderr);
+-    return;
+-  }
+-  LoadJson(
+-      {reinterpret_cast<const char*>(fileBuffer->begin()), fileBuffer->size()},
+-      jsonfile);
+-}
+-
+-bool FieldInfo::LoadImageImpl(const std::string& fn) {
+-  fmt::print("GUI: loading field image '{}'\n", fn);
+-  auto texture = gui::Texture::CreateFromFile(fn.c_str());
+-  if (!texture) {
+-    std::puts("GUI: could not read field image");
+-    return false;
+-  }
+-  m_texture = std::move(texture);
+-  m_imageWidth = m_texture.GetWidth();
+-  m_imageHeight = m_texture.GetHeight();
+-  m_filename = fn;
+-  return true;
+-}
+-
+-FieldFrameData FieldInfo::GetFrameData(ImVec2 min, ImVec2 max) const {
+-  // fit the image into the window
+-  if (m_texture && m_imageHeight != 0 && m_imageWidth != 0) {
+-    gui::MaxFit(&min, &max, m_imageWidth, m_imageHeight);
+-  } else {
+-    gui::MaxFit(&min, &max, m_width, m_height);
+-  }
+-
+-  FieldFrameData ffd;
+-  ffd.imageMin = min;
+-  ffd.imageMax = max;
+-
+-  if (m_bottom > 0 && m_right > 0 && m_imageWidth != 0) {
+-    // size down the box by the image corners
+-    float scale = (max.x - min.x) / m_imageWidth;
+-    min.x += m_left * scale;
+-    min.y += m_top * scale;
+-    max.x -= (m_imageWidth - m_right) * scale;
+-    max.y -= (m_imageHeight - m_bottom) * scale;
+-  } else if ((max.x - min.x) > 40 && (max.y - min.y > 40)) {
+-    // ensure there's some padding
+-    min.x += 20;
+-    max.x -= 20;
+-    min.y += 20;
+-    max.y -= 20;
+-  }
+-
+-  ffd.min = min;
+-  ffd.max = max;
+-  ffd.scale = (max.x - min.x) / m_width;
+-  return ffd;
+-}
+-
+-void FieldInfo::Draw(ImDrawList* drawList, const FieldFrameData& ffd) const {
+-  if (m_texture && m_imageHeight != 0 && m_imageWidth != 0) {
+-    drawList->AddImage(m_texture, ffd.imageMin, ffd.imageMax);
+-  }
+-
+-  // draw the field "active area" as a yellow boundary box
+-  drawList->AddRect(ffd.min, ffd.max, IM_COL32(255, 255, 0, 255));
+-}
+-
+-ObjectInfo::ObjectInfo(Storage& storage)
+-    : m_width{storage.GetFloat("width",
+-                               DisplayOptions::kDefaultWidth.to<float>())},
+-      m_length{storage.GetFloat("length",
+-                                DisplayOptions::kDefaultLength.to<float>())},
+-      m_style{storage.GetString("style"),
+-              DisplayOptions::kDefaultStyle,
+-              {"Box/Image", "Line", "Line (Closed)", "Track", "Hidden"}},
+-      m_weight{storage.GetFloat("weight", DisplayOptions::kDefaultWeight)},
+-      m_color{
+-          storage.GetFloatArray("color", DisplayOptions::kDefaultColorFloat)},
+-      m_arrows{storage.GetBool("arrows", DisplayOptions::kDefaultArrows)},
+-      m_arrowSize{
+-          storage.GetInt("arrowSize", DisplayOptions::kDefaultArrowSize)},
+-      m_arrowWeight{
+-          storage.GetFloat("arrowWeight", DisplayOptions::kDefaultArrowWeight)},
+-      m_arrowColor{storage.GetFloatArray(
+-          "arrowColor", DisplayOptions::kDefaultArrowColorFloat)},
+-      m_selectable{
+-          storage.GetBool("selectable", DisplayOptions::kDefaultSelectable)},
+-      m_filename{storage.GetString("image")} {}
+-
+-DisplayOptions ObjectInfo::GetDisplayOptions() const {
+-  DisplayOptions rv{m_texture};
+-  rv.style = static_cast<DisplayOptions::Style>(m_style.GetValue());
+-  rv.weight = m_weight;
+-  rv.color = ImGui::ColorConvertFloat4ToU32(m_color.GetColor());
+-  rv.width = units::meter_t{m_width};
+-  rv.length = units::meter_t{m_length};
+-  rv.arrows = m_arrows;
+-  rv.arrowSize = m_arrowSize;
+-  rv.arrowWeight = m_arrowWeight;
+-  rv.arrowColor = ImGui::ColorConvertFloat4ToU32(m_arrowColor.GetColor());
+-  rv.selectable = m_selectable;
+-  return rv;
+-}
+-
+-void ObjectInfo::DisplaySettings() {
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+-  m_style.Combo("Style");
+-  switch (m_style.GetValue()) {
+-    case DisplayOptions::kBoxImage:
+-      if (ImGui::Button("Choose image...")) {
+-        m_fileOpener = std::make_unique<pfd::open_file>(
+-            "Choose object image", "",
+-            std::vector<std::string>{
+-                "Image File",
+-                "*.jpg *.jpeg *.png *.bmp *.psd *.tga *.gif "
+-                "*.hdr *.pic *.ppm *.pgm"});
+-      }
+-      if (ImGui::Button("Reset image")) {
+-        Reset();
+-      }
+-      InputFloatLength("Width", &m_width);
+-      InputFloatLength("Length", &m_length);
+-      break;
+-    case DisplayOptions::kTrack:
+-      InputFloatLength("Width", &m_width);
+-      break;
+-    default:
+-      break;
+-  }
+-
+-  ImGui::InputFloat("Line Weight", &m_weight);
+-  m_color.ColorEdit3("Line Color", ImGuiColorEditFlags_NoInputs);
+-  ImGui::Checkbox("Arrows", &m_arrows);
+-  if (m_arrows) {
+-    ImGui::SliderInt("Arrow Size", &m_arrowSize, 0, 100, "%d%%",
+-                     ImGuiSliderFlags_AlwaysClamp);
+-    ImGui::InputFloat("Arrow Weight", &m_arrowWeight);
+-    m_arrowColor.ColorEdit3("Arrow Color", ImGuiColorEditFlags_NoInputs);
+-  }
+-
+-  ImGui::Checkbox("Selectable", &m_selectable);
+-}
+-
+-void ObjectInfo::DrawLine(ImDrawList* drawList,
+-                          std::span<const ImVec2> points) const {
+-  if (points.empty()) {
+-    return;
+-  }
+-
+-  if (points.size() == 1) {
+-    drawList->AddCircleFilled(points.front(), m_weight, m_weight);
+-    return;
+-  }
+-
+-  ImU32 color = ImGui::ColorConvertFloat4ToU32(m_color.GetColor());
+-
+-  // PolyLine doesn't handle acute angles well; workaround from
+-  // https://github.com/ocornut/imgui/issues/3366
+-  size_t i = 0;
+-  while (i + 1 < points.size()) {
+-    int nlin = 2;
+-    while (i + nlin < points.size()) {
+-      auto [x0, y0] = points[i + nlin - 2];
+-      auto [x1, y1] = points[i + nlin - 1];
+-      auto [x2, y2] = points[i + nlin];
+-      auto s0x = x1 - x0, s0y = y1 - y0;
+-      auto s1x = x2 - x1, s1y = y2 - y1;
+-      auto dotprod = s1x * s0x + s1y * s0y;
+-      if (dotprod < 0) {
+-        break;
+-      }
+-      ++nlin;
+-    }
+-
+-    drawList->AddPolyline(&points[i], nlin, color, false, m_weight);
+-    i += nlin - 1;
+-  }
+-
+-  if (points.size() > 2 && m_style.GetValue() == DisplayOptions::kLineClosed) {
+-    drawList->AddLine(points.back(), points.front(), color, m_weight);
+-  }
+-}
+-
+-void ObjectInfo::Reset() {
+-  m_texture = gui::Texture{};
+-  m_filename.clear();
+-}
+-
+-void ObjectInfo::LoadImage() {
+-  if (m_fileOpener && m_fileOpener->ready(0)) {
+-    auto result = m_fileOpener->result();
+-    if (!result.empty()) {
+-      LoadImageImpl(result[0].c_str());
+-    }
+-    m_fileOpener.reset();
+-  }
+-  if (!m_texture && !m_filename.empty()) {
+-    if (!LoadImageImpl(m_filename)) {
+-      m_filename.clear();
+-    }
+-  }
+-}
+-
+-bool ObjectInfo::LoadImageImpl(const std::string& fn) {
+-  fmt::print("GUI: loading object image '{}'\n", fn);
+-  auto texture = gui::Texture::CreateFromFile(fn.c_str());
+-  if (!texture) {
+-    std::fputs("GUI: could not read object image\n", stderr);
+-    return false;
+-  }
+-  m_texture = std::move(texture);
+-  m_filename = fn;
+-  return true;
+-}
+-
+-PoseFrameData::PoseFrameData(const frc::Pose2d& pose, FieldObjectModel& model,
+-                             size_t index, const FieldFrameData& ffd,
+-                             const DisplayOptions& displayOptions)
+-    : m_model{model},
+-      m_index{index},
+-      m_ffd{ffd},
+-      m_displayOptions{displayOptions},
+-      m_width2(ffd.scale * displayOptions.width / 2),
+-      m_length2(ffd.scale * displayOptions.length / 2),
+-      m_hitRadius((std::min)(m_width2, m_length2) / 2),
+-      m_pose{pose} {
+-  UpdateFrameData();
+-}
+-
+-void PoseFrameData::SetPosition(const frc::Translation2d& pos) {
+-  m_pose = frc::Pose2d{pos, m_pose.Rotation()};
+-  m_model.SetPose(m_index, m_pose);
+-}
+-
+-void PoseFrameData::SetRotation(units::radian_t rot) {
+-  m_pose = frc::Pose2d{m_pose.Translation(), rot};
+-  m_model.SetPose(m_index, m_pose);
+-}
+-
+-void PoseFrameData::UpdateFrameData() {
+-  // (0,0) origin is bottom left
+-  ImVec2 center = m_ffd.GetScreenFromPos(m_pose.Translation());
+-
+-  // build rotated points around center
+-  float length2 = m_length2;
+-  float width2 = m_width2;
+-  auto& rot = GetRotation();
+-  float cos_a = rot.Cos();
+-  float sin_a = -rot.Sin();
+-
+-  m_corners[0] = center + ImRotate(ImVec2(-length2, -width2), cos_a, sin_a);
+-  m_corners[1] = center + ImRotate(ImVec2(length2, -width2), cos_a, sin_a);
+-  m_corners[2] = center + ImRotate(ImVec2(length2, width2), cos_a, sin_a);
+-  m_corners[3] = center + ImRotate(ImVec2(-length2, width2), cos_a, sin_a);
+-  m_corners[4] = center + ImRotate(ImVec2(0, -width2), cos_a, sin_a);
+-  m_corners[5] = center + ImRotate(ImVec2(0, width2), cos_a, sin_a);
+-
+-  float arrowScale = m_displayOptions.arrowSize / 100.0f;
+-  m_arrow[0] =
+-      center + ImRotate(ImVec2(-length2 * arrowScale, -width2 * arrowScale),
+-                        cos_a, sin_a);
+-  m_arrow[1] = center + ImRotate(ImVec2(length2 * arrowScale, 0), cos_a, sin_a);
+-  m_arrow[2] =
+-      center + ImRotate(ImVec2(-length2 * arrowScale, width2 * arrowScale),
+-                        cos_a, sin_a);
+-
+-  m_center = center;
+-}
+-
+-std::pair<int, float> PoseFrameData::IsHovered(const ImVec2& cursor) const {
+-  float hitRadiusSquared = m_hitRadius * m_hitRadius;
+-  float dist;
+-
+-  // it's within the hit radius of the center?
+-  dist = gui::GetDistSquared(cursor, m_center);
+-  if (dist < hitRadiusSquared) {
+-    return {1, dist};
+-  }
+-
+-  if (m_displayOptions.style == DisplayOptions::kBoxImage) {
+-    dist = gui::GetDistSquared(cursor, m_corners[0]);
+-    if (dist < hitRadiusSquared) {
+-      return {2, dist};
+-    }
+-
+-    dist = gui::GetDistSquared(cursor, m_corners[1]);
+-    if (dist < hitRadiusSquared) {
+-      return {3, dist};
+-    }
+-
+-    dist = gui::GetDistSquared(cursor, m_corners[2]);
+-    if (dist < hitRadiusSquared) {
+-      return {4, dist};
+-    }
+-
+-    dist = gui::GetDistSquared(cursor, m_corners[3]);
+-    if (dist < hitRadiusSquared) {
+-      return {5, dist};
+-    }
+-  } else if (m_displayOptions.style == DisplayOptions::kTrack) {
+-    dist = gui::GetDistSquared(cursor, m_corners[4]);
+-    if (dist < hitRadiusSquared) {
+-      return {6, dist};
+-    }
+-
+-    dist = gui::GetDistSquared(cursor, m_corners[5]);
+-    if (dist < hitRadiusSquared) {
+-      return {7, dist};
+-    }
+-  }
+-
+-  return {0, 0.0};
+-}
+-
+-SelectedTargetInfo PoseFrameData::GetDragTarget(int corner, float dist) const {
+-  SelectedTargetInfo info;
+-  info.objModel = &m_model;
+-  info.rot = GetRotation().Radians();
+-  info.poseCenter = m_center;
+-  if (corner == 1) {
+-    info.center = m_center;
+-  } else {
+-    info.center = m_corners[corner - 2];
+-  }
+-  info.radius = m_hitRadius;
+-  info.dist = dist;
+-  info.corner = corner;
+-  return info;
+-}
+-
+-void PoseFrameData::HandleDrag(const ImVec2& cursor) {
+-  if (gDragState.target.corner == 1) {
+-    SetPosition(m_ffd.GetPosFromScreen(cursor - gDragState.initialOffset));
+-    UpdateFrameData();
+-    gDragState.target.center = m_center;
+-    gDragState.target.poseCenter = m_center;
+-  } else {
+-    ImVec2 off = cursor - m_center;
+-    SetRotation(gDragState.initialAngle -
+-                units::radian_t{std::atan2(off.y, off.x)});
+-    gDragState.target.center = m_corners[gDragState.target.corner - 2];
+-    gDragState.target.rot = GetRotation().Radians();
+-  }
+-}
+-
+-void PoseFrameData::Draw(ImDrawList* drawList, std::vector<ImVec2>* center,
+-                         std::vector<ImVec2>* left,
+-                         std::vector<ImVec2>* right) const {
+-  switch (m_displayOptions.style) {
+-    case DisplayOptions::kBoxImage:
+-      if (m_displayOptions.texture) {
+-        drawList->AddImageQuad(m_displayOptions.texture, m_corners[0],
+-                               m_corners[1], m_corners[2], m_corners[3]);
+-        return;
+-      }
+-      drawList->AddQuad(m_corners[0], m_corners[1], m_corners[2], m_corners[3],
+-                        m_displayOptions.color, m_displayOptions.weight);
+-      break;
+-    case DisplayOptions::kLine:
+-    case DisplayOptions::kLineClosed:
+-      center->emplace_back(m_center);
+-      break;
+-    case DisplayOptions::kTrack:
+-      center->emplace_back(m_center);
+-      left->emplace_back(m_corners[4]);
+-      right->emplace_back(m_corners[5]);
+-      break;
+-    case DisplayOptions::kHidden:
+-      break;
+-  }
+-
+-  if (m_displayOptions.arrows) {
+-    drawList->AddTriangle(m_arrow[0], m_arrow[1], m_arrow[2],
+-                          m_displayOptions.arrowColor,
+-                          m_displayOptions.arrowWeight);
+-  }
+-}
+-
+-void glass::DisplayField2DSettings(Field2DModel* model) {
+-  auto& storage = GetStorage();
+-  auto field = storage.GetData<FieldInfo>();
+-  if (!field) {
+-    storage.SetData(std::make_shared<FieldInfo>(storage));
+-    field = storage.GetData<FieldInfo>();
+-  }
+-
+-  EnumSetting displayUnits{GetStorage().GetString("units"),
+-                           kDisplayMeters,
+-                           {"meters", "feet", "inches"}};
+-  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+-  displayUnits.Combo("Units");
+-  gDisplayUnits = static_cast<DisplayUnits>(displayUnits.GetValue());
+-
+-  ImGui::PushItemWidth(ImGui::GetFontSize() * 4);
+-  if (ImGui::CollapsingHeader("Field")) {
+-    ImGui::PushID("Field");
+-    field->DisplaySettings();
+-    ImGui::PopID();
+-  }
+-
+-  model->ForEachFieldObject([&](auto& objModel, auto name) {
+-    if (!objModel.Exists()) {
+-      return;
+-    }
+-    PushID(name);
+-    auto& objRef = field->m_objects[name];
+-    if (!objRef) {
+-      objRef = std::make_unique<ObjectInfo>(GetStorage());
+-    }
+-    auto obj = objRef.get();
+-
+-    wpi::SmallString<64> nameBuf{name};
+-    if (ImGui::CollapsingHeader(nameBuf.c_str())) {
+-      obj->DisplaySettings();
+-    }
+-    PopID();
+-  });
+-  ImGui::PopItemWidth();
+-}
+-
+-namespace {
+-class FieldDisplay {
+- public:
+-  void Display(FieldInfo* field, Field2DModel* model,
+-               const ImVec2& contentSize);
+-
+- private:
+-  void DisplayObject(FieldObjectModel& model, std::string_view name);
+-
+-  FieldInfo* m_field;
+-  ImVec2 m_mousePos;
+-  ImDrawList* m_drawList;
+-
+-  // only allow initiation of dragging when invisible button is hovered;
+-  // this prevents the window resize handles from simultaneously activating
+-  // the drag functionality
+-  bool m_isHovered;
+-
+-  FieldFrameData m_ffd;
+-
+-  // drag targets
+-  std::vector<SelectedTargetInfo> m_targets;
+-
+-  // splitter so lines are put behind arrows
+-  ImDrawListSplitter m_drawSplit;
+-
+-  // lines; static so buffer gets reused
+-  std::vector<ImVec2> m_centerLine, m_leftLine, m_rightLine;
+-};
+-}  // namespace
+-
+-void FieldDisplay::Display(FieldInfo* field, Field2DModel* model,
+-                           const ImVec2& contentSize) {
+-  // screen coords
+-  ImVec2 cursorPos = ImGui::GetWindowPos() + ImGui::GetCursorPos();
+-
+-  // for dragging to work, there needs to be a button (otherwise the window is
+-  // dragged)
+-  ImGui::InvisibleButton("field", contentSize);
+-
+-  m_field = field;
+-  m_mousePos = ImGui::GetIO().MousePos;
+-  m_drawList = ImGui::GetWindowDrawList();
+-  m_isHovered = ImGui::IsItemHovered();
+-
+-  // field
+-  field->LoadImage();
+-  m_ffd = field->GetFrameData(cursorPos, cursorPos + contentSize);
+-  field->Draw(m_drawList, m_ffd);
+-
+-  // stop dragging if mouse button not down
+-  bool isDown = ImGui::IsMouseDown(0);
+-  if (!isDown) {
+-    gDragState.target.objModel = nullptr;
+-  }
+-
+-  // clear popup target if popup closed
+-  bool isPopupOpen = ImGui::IsPopupOpen("edit");
+-  if (!isPopupOpen) {
+-    gPopupState.Close();
+-  }
+-
+-  // field objects
+-  m_targets.resize(0);
+-  model->ForEachFieldObject([this](auto& objModel, auto name) {
+-    if (objModel.Exists()) {
+-      DisplayObject(objModel, name);
+-    }
+-  });
+-
+-  SelectedTargetInfo* target = nullptr;
+-
+-  if (gDragState.target.objModel) {
+-    target = &gDragState.target;
+-  } else if (gPopupState.GetTarget()->objModel) {
+-    target = gPopupState.GetTarget();
+-  } else if (!m_targets.empty()) {
+-    // Find the "best" drag target of the available options.  Prefer
+-    // center to non-center, and then pick the closest hit.
+-    std::sort(m_targets.begin(), m_targets.end(),
+-              [](const auto& a, const auto& b) {
+-                return a.corner == 0 || a.dist < b.dist;
+-              });
+-    target = &m_targets.front();
+-  }
+-
+-  if (target) {
+-    // draw the target circle; also draw a smaller circle on the pose center
+-    m_drawList->AddCircle(target->center, target->radius,
+-                          IM_COL32(0, 255, 0, 255));
+-    if (target->corner != 1) {
+-      m_drawList->AddCircle(target->poseCenter, target->radius / 2.0,
+-                            IM_COL32(0, 255, 0, 255));
+-    }
+-  }
+-
+-  // right-click popup for editing
+-  if (m_isHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+-    gPopupState.Open(target, m_ffd.GetPosFromScreen(m_mousePos));
+-    ImGui::OpenPopup("edit");
+-  }
+-  if (ImGui::BeginPopup("edit")) {
+-    gPopupState.Display(model, m_ffd);
+-    ImGui::EndPopup();
+-  } else if (target) {
+-    if (m_isHovered && ImGui::IsMouseClicked(0)) {
+-      // initialize drag state
+-      gDragState.target = *target;
+-      gDragState.initialOffset = m_mousePos - target->poseCenter;
+-      if (target->corner != 1) {
+-        gDragState.initialAngle =
+-            units::radian_t{std::atan2(gDragState.initialOffset.y,
+-                                       gDragState.initialOffset.x)} +
+-            target->rot;
+-      }
+-    }
+-
+-    // show tooltip and highlight
+-    auto pos = m_ffd.GetPosFromScreen(target->poseCenter);
+-    ImGui::SetTooltip(
+-        "%s[%d]\nx: %0.3f y: %0.3f rot: %0.3f", target->name.c_str(),
+-        static_cast<int>(target->index), ConvertDisplayLength(pos.X()),
+-        ConvertDisplayLength(pos.Y()), ConvertDisplayAngle(target->rot));
+-  }
+-}
+-
+-void FieldDisplay::DisplayObject(FieldObjectModel& model,
+-                                 std::string_view name) {
+-  PushID(name);
+-  auto& objRef = m_field->m_objects[name];
+-  if (!objRef) {
+-    objRef = std::make_unique<ObjectInfo>(GetStorage());
+-  }
+-  auto obj = objRef.get();
+-  obj->LoadImage();
+-
+-  auto displayOptions = obj->GetDisplayOptions();
+-
+-  m_centerLine.resize(0);
+-  m_leftLine.resize(0);
+-  m_rightLine.resize(0);
+-
+-  m_drawSplit.Split(m_drawList, 2);
+-  m_drawSplit.SetCurrentChannel(m_drawList, 1);
+-  auto poses = gPopupState.GetInsertModel() == &model
+-                   ? gPopupState.GetInsertPoses()
+-                   : model.GetPoses();
+-  size_t i = 0;
+-  for (auto&& pose : poses) {
+-    PoseFrameData pfd{pose, model, i, m_ffd, displayOptions};
+-
+-    // check for potential drag targets
+-    if (displayOptions.selectable && m_isHovered &&
+-        !gDragState.target.objModel) {
+-      auto [corner, dist] = pfd.IsHovered(m_mousePos);
+-      if (corner > 0) {
+-        m_targets.emplace_back(pfd.GetDragTarget(corner, dist));
+-        m_targets.back().name = name;
+-        m_targets.back().index = i;
+-      }
+-    }
+-
+-    // handle active dragging of this object
+-    if (gDragState.target.objModel == &model && gDragState.target.index == i) {
+-      pfd.HandleDrag(m_mousePos);
+-    }
+-
+-    // draw
+-    pfd.Draw(m_drawList, &m_centerLine, &m_leftLine, &m_rightLine);
+-    ++i;
+-  }
+-
+-  m_drawSplit.SetCurrentChannel(m_drawList, 0);
+-  obj->DrawLine(m_drawList, m_centerLine);
+-  obj->DrawLine(m_drawList, m_leftLine);
+-  obj->DrawLine(m_drawList, m_rightLine);
+-  m_drawSplit.Merge(m_drawList);
+-
+-  PopID();
+-}
+-
+-void PopupState::Open(SelectedTargetInfo* target,
+-                      const frc::Translation2d& pos) {
+-  if (target) {
+-    m_target = *target;
+-  } else {
+-    m_target.objModel = nullptr;
+-    m_insertModel = nullptr;
+-    m_insertPoses.resize(0);
+-    m_insertPoses.emplace_back(pos, 0_deg);
+-    m_insertName.clear();
+-    m_insertIndex = 0;
+-  }
+-}
+-
+-void PopupState::Close() {
+-  m_target.objModel = nullptr;
+-  m_insertModel = nullptr;
+-  m_insertPoses.resize(0);
+-}
+-
+-void PopupState::Display(Field2DModel* model, const FieldFrameData& ffd) {
+-  if (m_target.objModel) {
+-    DisplayTarget(model, ffd);
+-  } else {
+-    DisplayInsert(model);
+-  }
+-}
+-
+-void PopupState::DisplayTarget(Field2DModel* model, const FieldFrameData& ffd) {
+-  ImGui::Text("%s[%d]", m_target.name.c_str(),
+-              static_cast<int>(m_target.index));
+-  frc::Pose2d pose{ffd.GetPosFromScreen(m_target.poseCenter), m_target.rot};
+-  if (InputPose(&pose)) {
+-    m_target.poseCenter = ffd.GetScreenFromPos(pose.Translation());
+-    m_target.rot = pose.Rotation().Radians();
+-    m_target.objModel->SetPose(m_target.index, pose);
+-  }
+-  if (ImGui::Button("Delete Pose")) {
+-    auto posesRef = m_target.objModel->GetPoses();
+-    std::vector<frc::Pose2d> poses{posesRef.begin(), posesRef.end()};
+-    if (m_target.index < poses.size()) {
+-      poses.erase(poses.begin() + m_target.index);
+-      m_target.objModel->SetPoses(poses);
+-    }
+-    ImGui::CloseCurrentPopup();
+-  }
+-  if (ImGui::Button("Delete Object (ALL Poses)")) {
+-    model->RemoveFieldObject(m_target.name);
+-    ImGui::CloseCurrentPopup();
+-  }
+-}
+-
+-void PopupState::DisplayInsert(Field2DModel* model) {
+-  ImGui::TextUnformatted("Insert New Pose");
+-
+-  InputPose(&m_insertPoses[m_insertIndex]);
+-
+-  const char* insertName = m_insertModel ? m_insertName.c_str() : "<new>";
+-  if (ImGui::BeginCombo("Object", insertName)) {
+-    bool selected = !m_insertModel;
+-    if (ImGui::Selectable("<new>", selected)) {
+-      m_insertModel = nullptr;
+-      auto pose = m_insertPoses[m_insertIndex];
+-      m_insertPoses.resize(0);
+-      m_insertPoses.emplace_back(std::move(pose));
+-      m_insertName.clear();
+-      m_insertIndex = 0;
+-    }
+-    if (selected) {
+-      ImGui::SetItemDefaultFocus();
+-    }
+-    model->ForEachFieldObject([&](auto& objModel, auto name) {
+-      bool selected = m_insertModel == &objModel;
+-      if (ImGui::Selectable(name.data(), selected)) {
+-        m_insertModel = &objModel;
+-        auto pose = m_insertPoses[m_insertIndex];
+-        auto posesRef = objModel.GetPoses();
+-        m_insertPoses.assign(posesRef.begin(), posesRef.end());
+-        m_insertPoses.emplace_back(std::move(pose));
+-        m_insertName = name;
+-        m_insertIndex = m_insertPoses.size() - 1;
+-      }
+-      if (selected) {
+-        ImGui::SetItemDefaultFocus();
+-      }
+-    });
+-    ImGui::EndCombo();
+-  }
+-  if (m_insertModel) {
+-    int oldIndex = m_insertIndex;
+-    if (ImGui::InputInt("Pos", &m_insertIndex, 1, 5)) {
+-      if (m_insertIndex < 0) {
+-        m_insertIndex = 0;
+-      }
+-      size_t size = m_insertPoses.size();
+-      if (static_cast<size_t>(m_insertIndex) >= size) {
+-        m_insertIndex = size - 1;
+-      }
+-      if (m_insertIndex < oldIndex) {
+-        auto begin = m_insertPoses.begin();
+-        std::rotate(begin + m_insertIndex, begin + oldIndex,
+-                    begin + oldIndex + 1);
+-      } else if (m_insertIndex > oldIndex) {
+-        auto rbegin = m_insertPoses.rbegin();
+-        std::rotate(rbegin + (size - m_insertIndex), rbegin + (size - oldIndex),
+-                    rbegin + (size - oldIndex - 1));
+-      }
+-    }
+-  } else {
+-    ImGui::InputText("Name", &m_insertName);
+-  }
+-
+-  if (ImGui::Button("Apply")) {
+-    if (m_insertModel) {
+-      m_insertModel->SetPoses(m_insertPoses);
+-    } else if (!m_insertName.empty()) {
+-      model->AddFieldObject(m_insertName)->SetPoses(m_insertPoses);
+-    }
+-    ImGui::CloseCurrentPopup();
+-  }
+-  ImGui::SameLine();
+-  if (ImGui::Button("Cancel")) {
+-    ImGui::CloseCurrentPopup();
+-  }
+-}
+-
+-void glass::DisplayField2D(Field2DModel* model, const ImVec2& contentSize) {
+-  auto& storage = GetStorage();
+-  auto field = storage.GetData<FieldInfo>();
+-  if (!field) {
+-    storage.SetData(std::make_shared<FieldInfo>(storage));
+-    field = storage.GetData<FieldInfo>();
+-  }
+-
+-  if (contentSize.x <= 0 || contentSize.y <= 0) {
+-    return;
+-  }
+-
+-  static FieldDisplay display;
+-  display.Display(field, model, contentSize);
+-}
+-
+-void Field2DView::Display() {
+-  DisplayField2D(m_model, ImGui::GetWindowContentRegionMax() -
+-                              ImGui::GetWindowContentRegionMin());
+-}
+-
+-void Field2DView::Settings() {
+-  DisplayField2DSettings(m_model);
+-}
+-
+-bool Field2DView::HasSettings() {
+-  return true;
+-}
+diff --git a/glass/src/lib/native/cpp/other/Mechanism2D.cpp b/glass/src/lib/native/cpp/other/Mechanism2D.cpp
+deleted file mode 100644
+index 722585b2e..000000000
+--- a/glass/src/lib/native/cpp/other/Mechanism2D.cpp
++++ /dev/null
+@@ -1,262 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/Mechanism2D.h"
+-
+-#include <algorithm>
+-#include <cmath>
+-#include <cstdio>
+-#include <memory>
+-#include <string_view>
+-#include <utility>
+-
+-#include <fmt/format.h>
+-#include <frc/geometry/Pose2d.h>
+-#include <frc/geometry/Rotation2d.h>
+-#include <frc/geometry/Transform2d.h>
+-#include <frc/geometry/Translation2d.h>
+-
+-#define IMGUI_DEFINE_MATH_OPERATORS
+-#include <imgui.h>
+-#include <imgui_internal.h>
+-#include <imgui_stdlib.h>
+-#include <portable-file-dialogs.h>
+-#include <units/angle.h>
+-#include <units/length.h>
+-#include <wpigui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/Storage.h"
+-
+-using namespace glass;
+-
+-namespace gui = wpi::gui;
+-
+-namespace {
+-
+-// Per-frame data (not persistent)
+-struct FrameData {
+-  frc::Translation2d GetPosFromScreen(const ImVec2& cursor) const {
+-    return {
+-        units::meter_t{(std::clamp(cursor.x, min.x, max.x) - min.x) / scale},
+-        units::meter_t{(max.y - std::clamp(cursor.y, min.y, max.y)) / scale}};
+-  }
+-  ImVec2 GetScreenFromPos(const frc::Translation2d& pos) const {
+-    return {min.x + scale * pos.X().to<float>(),
+-            max.y - scale * pos.Y().to<float>()};
+-  }
+-  void DrawObject(ImDrawList* drawList, MechanismObjectModel& objModel,
+-                  const frc::Pose2d& pose) const;
+-  void DrawGroup(ImDrawList* drawList, MechanismObjectGroup& group,
+-                 const frc::Pose2d& pose) const;
+-
+-  // in screen coordinates
+-  ImVec2 imageMin;
+-  ImVec2 imageMax;
+-  ImVec2 min;
+-  ImVec2 max;
+-
+-  float scale;  // scaling from meters to screen units
+-};
+-
+-class BackgroundInfo {
+- public:
+-  explicit BackgroundInfo(Storage& storage);
+-
+-  void DisplaySettings();
+-
+-  void LoadImage();
+-  FrameData GetFrameData(ImVec2 min, ImVec2 max, frc::Translation2d dims) const;
+-  void Draw(ImDrawList* drawList, const FrameData& frameData,
+-            ImU32 bgColor) const;
+-
+- private:
+-  void Reset();
+-  bool LoadImageImpl(const std::string& fn);
+-
+-  std::unique_ptr<pfd::open_file> m_fileOpener;
+-
+-  std::string& m_filename;
+-  gui::Texture m_texture;
+-
+-  // in image pixels
+-  int m_imageWidth;
+-  int m_imageHeight;
+-};
+-
+-}  // namespace
+-
+-BackgroundInfo::BackgroundInfo(Storage& storage)
+-    : m_filename{storage.GetString("image")} {}
+-
+-void BackgroundInfo::DisplaySettings() {
+-  if (ImGui::Button("Choose image...")) {
+-    m_fileOpener = std::make_unique<pfd::open_file>(
+-        "Choose background image", "",
+-        std::vector<std::string>{"Image File",
+-                                 "*.jpg *.jpeg *.png *.bmp *.psd *.tga *.gif "
+-                                 "*.hdr *.pic *.ppm *.pgm"});
+-  }
+-  if (ImGui::Button("Reset background image")) {
+-    Reset();
+-  }
+-}
+-
+-void BackgroundInfo::Reset() {
+-  m_texture = gui::Texture{};
+-  m_filename.clear();
+-  m_imageWidth = 0;
+-  m_imageHeight = 0;
+-}
+-
+-void BackgroundInfo::LoadImage() {
+-  if (m_fileOpener && m_fileOpener->ready(0)) {
+-    auto result = m_fileOpener->result();
+-    if (!result.empty()) {
+-      LoadImageImpl(result[0].c_str());
+-    }
+-    m_fileOpener.reset();
+-  }
+-  if (!m_texture && !m_filename.empty()) {
+-    if (!LoadImageImpl(m_filename)) {
+-      m_filename.clear();
+-    }
+-  }
+-}
+-
+-bool BackgroundInfo::LoadImageImpl(const std::string& fn) {
+-  fmt::print("GUI: loading background image '{}'\n", fn);
+-  auto texture = gui::Texture::CreateFromFile(fn.c_str());
+-  if (!texture) {
+-    std::puts("GUI: could not read background image");
+-    return false;
+-  }
+-  m_texture = std::move(texture);
+-  m_imageWidth = m_texture.GetWidth();
+-  m_imageHeight = m_texture.GetHeight();
+-  m_filename = fn;
+-  return true;
+-}
+-
+-FrameData BackgroundInfo::GetFrameData(ImVec2 min, ImVec2 max,
+-                                       frc::Translation2d dims) const {
+-  // fit the image into the window
+-  if (m_texture && m_imageHeight != 0 && m_imageWidth != 0) {
+-    gui::MaxFit(&min, &max, m_imageWidth, m_imageHeight);
+-  }
+-
+-  FrameData frameData;
+-  frameData.imageMin = min;
+-  frameData.imageMax = max;
+-
+-  // determine the "active area"
+-  float width = dims.X().to<float>();
+-  float height = dims.Y().to<float>();
+-  gui::MaxFit(&min, &max, width, height);
+-
+-  frameData.min = min;
+-  frameData.max = max;
+-  frameData.scale = (max.x - min.x) / width;
+-  return frameData;
+-}
+-
+-void BackgroundInfo::Draw(ImDrawList* drawList, const FrameData& frameData,
+-                          ImU32 bgColor) const {
+-  if (m_texture && m_imageHeight != 0 && m_imageWidth != 0) {
+-    drawList->AddImage(m_texture, frameData.imageMin, frameData.imageMax);
+-  } else {
+-    drawList->AddRectFilled(frameData.min, frameData.max, bgColor);
+-  }
+-}
+-
+-void glass::DisplayMechanism2DSettings(Mechanism2DModel* model) {
+-  auto& storage = GetStorage();
+-  auto bg = storage.GetData<BackgroundInfo>();
+-  if (!bg) {
+-    storage.SetData(std::make_shared<BackgroundInfo>(storage));
+-    bg = storage.GetData<BackgroundInfo>();
+-  }
+-  bg->DisplaySettings();
+-}
+-
+-void FrameData::DrawObject(ImDrawList* drawList, MechanismObjectModel& objModel,
+-                           const frc::Pose2d& pose) const {
+-  const char* type = objModel.GetType();
+-  if (std::string_view{type} == "line") {
+-    auto startPose =
+-        pose + frc::Transform2d{frc::Translation2d{}, objModel.GetAngle()};
+-    auto endPose =
+-        startPose +
+-        frc::Transform2d{frc::Translation2d{objModel.GetLength(), 0_m}, 0_deg};
+-    drawList->AddLine(GetScreenFromPos(startPose.Translation()),
+-                      GetScreenFromPos(endPose.Translation()),
+-                      objModel.GetColor(), objModel.GetWeight());
+-    DrawGroup(drawList, objModel, endPose);
+-  }
+-}
+-
+-void FrameData::DrawGroup(ImDrawList* drawList, MechanismObjectGroup& group,
+-                          const frc::Pose2d& pose) const {
+-  group.ForEachObject(
+-      [&](auto& objModel) { DrawObject(drawList, objModel, pose); });
+-}
+-
+-void glass::DisplayMechanism2D(Mechanism2DModel* model,
+-                               const ImVec2& contentSize) {
+-  auto& storage = GetStorage();
+-  auto bg = storage.GetData<BackgroundInfo>();
+-  if (!bg) {
+-    storage.SetData(std::make_shared<BackgroundInfo>(storage));
+-    bg = storage.GetData<BackgroundInfo>();
+-  }
+-
+-  if (contentSize.x <= 0 || contentSize.y <= 0) {
+-    return;
+-  }
+-
+-  // screen coords
+-  ImVec2 cursorPos = ImGui::GetWindowPos() + ImGui::GetCursorPos();
+-
+-  ImGui::InvisibleButton("background", contentSize);
+-
+-  // auto mousePos = ImGui::GetIO().MousePos;
+-  auto drawList = ImGui::GetWindowDrawList();
+-  // bool isHovered = ImGui::IsItemHovered();
+-
+-  // background
+-  bg->LoadImage();
+-  auto frameData = bg->GetFrameData(cursorPos, cursorPos + contentSize,
+-                                    model->GetDimensions());
+-  bg->Draw(drawList, frameData, model->GetBackgroundColor());
+-
+-  // elements
+-  model->ForEachRoot([&](auto& rootModel) {
+-    frameData.DrawGroup(drawList, rootModel,
+-                        frc::Pose2d{rootModel.GetPosition(), 0_deg});
+-  });
+-
+-#if 0
+-  if (target) {
+-    // show tooltip and highlight
+-    auto pos = frameData.GetPosFromScreen(target->poseCenter);
+-    ImGui::SetTooltip(
+-        "%s[%d]\nx: %0.3f y: %0.3f rot: %0.3f", target->name.c_str(),
+-        static_cast<int>(target->index), ConvertDisplayLength(pos.X()),
+-        ConvertDisplayLength(pos.Y()), ConvertDisplayAngle(target->rot));
+-  }
+-#endif
+-}
+-
+-void Mechanism2DView::Display() {
+-  DisplayMechanism2D(m_model, ImGui::GetWindowContentRegionMax() -
+-                                  ImGui::GetWindowContentRegionMin());
+-}
+-
+-void Mechanism2DView::Settings() {
+-  DisplayMechanism2DSettings(m_model);
+-}
+-
+-bool Mechanism2DView::HasSettings() {
+-  return true;
+-}
+diff --git a/glass/src/lib/native/cpp/other/PIDController.cpp b/glass/src/lib/native/cpp/other/PIDController.cpp
+deleted file mode 100644
+index 8aa5e1f99..000000000
+--- a/glass/src/lib/native/cpp/other/PIDController.cpp
++++ /dev/null
+@@ -1,70 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/PIDController.h"
+-
+-#include <string>
+-
+-#include <imgui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayPIDController(PIDControllerModel* m) {
+-  if (auto name = m->GetName()) {
+-    ImGui::Text("%s", name);
+-    ImGui::Separator();
+-  }
+-
+-  if (m->Exists()) {
+-    auto flag = m->IsReadOnly() ? ImGuiInputTextFlags_ReadOnly
+-                                : ImGuiInputTextFlags_None;
+-    auto createTuningParameter = [flag](const char* name, double* v,
+-                                        std::function<void(double)> callback) {
+-      ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-      if (ImGui::InputDouble(name, v, 0.0, 0.0, "%.3f", flag)) {
+-        callback(*v);
+-      }
+-    };
+-    // Workaround to allow for the input of inf, -inf, and nan
+-    auto createTuningParameterNoFilter =
+-        [flag](const char* name, double* v,
+-               std::function<void(double)> callback) {
+-          ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-          if (ImGui::InputScalar(name, ImGuiDataType_Double, v, NULL, NULL,
+-                                 "%.3f", flag)) {
+-            callback(*v);
+-          }
+-        };
+-
+-    if (auto p = m->GetPData()) {
+-      double value = p->GetValue();
+-      createTuningParameter("P", &value, [=](auto v) { m->SetP(v); });
+-    }
+-    if (auto i = m->GetIData()) {
+-      double value = i->GetValue();
+-      createTuningParameter("I", &value, [=](auto v) { m->SetI(v); });
+-    }
+-    if (auto d = m->GetDData()) {
+-      double value = d->GetValue();
+-      createTuningParameter("D", &value, [=](auto v) { m->SetD(v); });
+-    }
+-    if (auto s = m->GetSetpointData()) {
+-      double value = s->GetValue();
+-      createTuningParameter("Setpoint", &value,
+-                            [=](auto v) { m->SetSetpoint(v); });
+-    }
+-    if (auto s = m->GetIZoneData()) {
+-      double value = s->GetValue();
+-      createTuningParameterNoFilter("IZone", &value,
+-                                    [=](auto v) { m->SetIZone(v); });
+-    }
+-  } else {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown PID Controller");
+-    ImGui::PopStyleColor();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/other/ProfiledPIDController.cpp b/glass/src/lib/native/cpp/other/ProfiledPIDController.cpp
+deleted file mode 100644
+index 8113c8cf1..000000000
+--- a/glass/src/lib/native/cpp/other/ProfiledPIDController.cpp
++++ /dev/null
+@@ -1,69 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/ProfiledPIDController.h"
+-
+-#include <string>
+-
+-#include <imgui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplayProfiledPIDController(ProfiledPIDControllerModel* m) {
+-  if (auto name = m->GetName()) {
+-    ImGui::Text("%s", name);
+-    ImGui::Separator();
+-  }
+-
+-  if (m->Exists()) {
+-    auto flag = m->IsReadOnly() ? ImGuiInputTextFlags_ReadOnly
+-                                : ImGuiInputTextFlags_None;
+-    auto createTuningParameter = [flag](const char* name, double* v,
+-                                        std::function<void(double)> callback) {
+-      ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-      if (ImGui::InputDouble(name, v, 0.0, 0.0, "%.3f", flag)) {
+-        callback(*v);
+-      }
+-    };
+-    // Workaround to allow for the input of inf, -inf, and nan
+-    auto createTuningParameterNoFilter =
+-        [flag](const char* name, double* v,
+-               std::function<void(double)> callback) {
+-          ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4);
+-          if (ImGui::InputScalar(name, ImGuiDataType_Double, v, NULL, NULL,
+-                                 "%.3f", flag)) {
+-            callback(*v);
+-          }
+-        };
+-
+-    if (auto p = m->GetPData()) {
+-      double value = p->GetValue();
+-      createTuningParameter("P", &value, [=](auto v) { m->SetP(v); });
+-    }
+-    if (auto i = m->GetIData()) {
+-      double value = i->GetValue();
+-      createTuningParameter("I", &value, [=](auto v) { m->SetI(v); });
+-    }
+-    if (auto d = m->GetDData()) {
+-      double value = d->GetValue();
+-      createTuningParameter("D", &value, [=](auto v) { m->SetD(v); });
+-    }
+-    if (auto s = m->GetGoalData()) {
+-      double value = s->GetValue();
+-      createTuningParameter("Goal", &value, [=](auto v) { m->SetGoal(v); });
+-    }
+-    if (auto s = m->GetIZoneData()) {
+-      double value = s->GetValue();
+-      createTuningParameterNoFilter("IZone", &value,
+-                                    [=](auto v) { m->SetIZone(v); });
+-    }
+-  } else {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown PID Controller");
+-    ImGui::PopStyleColor();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/other/StringChooser.cpp b/glass/src/lib/native/cpp/other/StringChooser.cpp
+deleted file mode 100644
+index 46fa67435..000000000
+--- a/glass/src/lib/native/cpp/other/StringChooser.cpp
++++ /dev/null
+@@ -1,41 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/StringChooser.h"
+-
+-#include <imgui.h>
+-
+-using namespace glass;
+-
+-void glass::DisplayStringChooser(StringChooserModel* model) {
+-  auto& defaultValue = model->GetDefault();
+-  auto& selected = model->GetSelected();
+-  auto& active = model->GetActive();
+-  auto& options = model->GetOptions();
+-
+-  const char* preview =
+-      selected.empty() ? defaultValue.c_str() : selected.c_str();
+-
+-  const char* label;
+-  if (active == preview) {
+-    label = "GOOD##select";
+-  } else {
+-    label = "BAD ##select";
+-  }
+-
+-  if (ImGui::BeginCombo(label, preview)) {
+-    for (auto&& option : options) {
+-      ImGui::PushID(option.c_str());
+-      bool isSelected = (option == selected);
+-      if (ImGui::Selectable(option.c_str(), isSelected)) {
+-        model->SetSelected(option);
+-      }
+-      if (isSelected) {
+-        ImGui::SetItemDefaultFocus();
+-      }
+-      ImGui::PopID();
+-    }
+-    ImGui::EndCombo();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/other/Subsystem.cpp b/glass/src/lib/native/cpp/other/Subsystem.cpp
+deleted file mode 100644
+index c4ed4746d..000000000
+--- a/glass/src/lib/native/cpp/other/Subsystem.cpp
++++ /dev/null
+@@ -1,29 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/other/Subsystem.h"
+-
+-#include <imgui.h>
+-
+-#include "glass/Context.h"
+-#include "glass/DataSource.h"
+-
+-using namespace glass;
+-
+-void glass::DisplaySubsystem(SubsystemModel* m) {
+-  if (auto name = m->GetName()) {
+-    ImGui::Text("%s", name);
+-    ImGui::Separator();
+-  }
+-  if (m->Exists()) {
+-    std::string defaultCommand = m->GetDefaultCommand();
+-    std::string currentCommand = m->GetCurrentCommand();
+-    ImGui::Text("%s", ("Default Command: " + defaultCommand).c_str());
+-    ImGui::Text("%s", ("Current Command: " + currentCommand).c_str());
+-  } else {
+-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(96, 96, 96, 255));
+-    ImGui::Text("Unknown Subsystem");
+-    ImGui::PopStyleColor();
+-  }
+-}
+diff --git a/glass/src/lib/native/cpp/support/DataLogReaderThread.cpp b/glass/src/lib/native/cpp/support/DataLogReaderThread.cpp
+deleted file mode 100644
+index 9d90bb396..000000000
+--- a/glass/src/lib/native/cpp/support/DataLogReaderThread.cpp
++++ /dev/null
+@@ -1,124 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#include "glass/support/DataLogReaderThread.h"
+-
+-#include <utility>
+-
+-#include <fmt/format.h>
+-#include <wpi/StringExtras.h>
+-
+-using namespace glass;
+-
+-DataLogReaderThread::~DataLogReaderThread() {
+-  if (m_thread.joinable()) {
+-    m_active = false;
+-    m_thread.join();
+-  }
+-}
+-
+-void DataLogReaderThread::ReadMain() {
+-  wpi::SmallDenseMap<
+-      int, std::pair<DataLogReaderEntry*, std::span<const uint8_t>>, 8>
+-      schemaEntries;
+-
+-  for (auto recordIt = m_reader.begin(), recordEnd = m_reader.end();
+-       recordIt != recordEnd; ++recordIt) {
+-    auto& record = *recordIt;
+-    if (!m_active) {
+-      break;
+-    }
+-    ++m_numRecords;
+-    if (record.IsStart()) {
+-      DataLogReaderEntry data;
+-      if (record.GetStartData(&data)) {
+-        std::scoped_lock lock{m_mutex};
+-        auto& entryPtr = m_entriesById[data.entry];
+-        if (entryPtr) {
+-          fmt::print("...DUPLICATE entry ID, overriding\n");
+-        }
+-        auto [it, isNew] = m_entriesByName.emplace(data.name, data);
+-        if (isNew) {
+-          it->second.ranges.emplace_back(recordIt, recordEnd);
+-        }
+-        entryPtr = &it->second;
+-        if (data.type == "structschema" ||
+-            data.type == "proto:FileDescriptorProto") {
+-          schemaEntries.try_emplace(data.entry, entryPtr,
+-                                    std::span<const uint8_t>{});
+-        }
+-        sigEntryAdded(data);
+-      } else {
+-        fmt::print("Start(INVALID)\n");
+-      }
+-    } else if (record.IsFinish()) {
+-      int entry;
+-      if (record.GetFinishEntry(&entry)) {
+-        std::scoped_lock lock{m_mutex};
+-        auto it = m_entriesById.find(entry);
+-        if (it == m_entriesById.end()) {
+-          fmt::print("...ID not found\n");
+-        } else {
+-          it->second->ranges.back().m_end = recordIt;
+-          m_entriesById.erase(it);
+-        }
+-      } else {
+-        fmt::print("Finish(INVALID)\n");
+-      }
+-    } else if (record.IsSetMetadata()) {
+-      wpi::log::MetadataRecordData data;
+-      if (record.GetSetMetadataData(&data)) {
+-        std::scoped_lock lock{m_mutex};
+-        auto it = m_entriesById.find(data.entry);
+-        if (it == m_entriesById.end()) {
+-          fmt::print("...ID not found\n");
+-        } else {
+-          it->second->metadata = data.metadata;
+-        }
+-      } else {
+-        fmt::print("SetMetadata(INVALID)\n");
+-      }
+-    } else if (record.IsControl()) {
+-      fmt::print("Unrecognized control record\n");
+-    } else {
+-      auto it = schemaEntries.find(record.GetEntry());
+-      if (it != schemaEntries.end()) {
+-        it->second.second = record.GetRaw();
+-      }
+-    }
+-  }
+-
+-  // build schema databases
+-  for (auto&& schemaPair : schemaEntries) {
+-    auto name = schemaPair.second.first->name;
+-    auto data = schemaPair.second.second;
+-    if (data.empty()) {
+-      continue;
+-    }
+-    if (wpi::starts_with(name, "NT:")) {
+-      name = wpi::drop_front(name, 3);
+-    }
+-    if (wpi::starts_with(name, "/.schema/struct:")) {
+-      auto typeStr = wpi::drop_front(name, 16);
+-      std::string_view schema{reinterpret_cast<const char*>(data.data()),
+-                              data.size()};
+-      std::string err;
+-      auto desc = m_structDb.Add(typeStr, schema, &err);
+-      if (!desc) {
+-        fmt::print("could not decode struct '{}' schema '{}': {}\n", name,
+-                   schema, err);
+-      }
+-    } else if (wpi::starts_with(name, "/.schema/proto:")) {
+-      // protobuf descriptor handling
+-      auto filename = wpi::drop_front(name, 15);
+-      if (!m_protoDb.Add(filename, data)) {
+-        fmt::print("could not decode protobuf '{}' filename '{}'\n", name,
+-                   filename);
+-      }
+-    }
+-  }
+-
+-  sigDone();
+-  m_done = true;
+-}
+diff --git a/glass/src/lib/native/include/glass/hardware/Accelerometer.h b/glass/src/lib/native/include/glass/hardware/Accelerometer.h
+deleted file mode 100644
+index e997963da..000000000
+--- a/glass/src/lib/native/include/glass/hardware/Accelerometer.h
++++ /dev/null
+@@ -1,29 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class AccelerometerModel : public Model {
+- public:
+-  virtual DataSource* GetXData() = 0;
+-  virtual DataSource* GetYData() = 0;
+-  virtual DataSource* GetZData() = 0;
+-
+-  virtual int GetRange() = 0;
+-
+-  virtual void SetX(double val) = 0;
+-  virtual void SetY(double val) = 0;
+-  virtual void SetZ(double val) = 0;
+-  virtual void SetRange(int val) = 0;
+-};
+-
+-void DisplayAccelerometerDevice(AccelerometerModel* model);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/AnalogGyro.h b/glass/src/lib/native/include/glass/hardware/AnalogGyro.h
+deleted file mode 100644
+index fdfcf4f79..000000000
+--- a/glass/src/lib/native/include/glass/hardware/AnalogGyro.h
++++ /dev/null
+@@ -1,33 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class AnalogGyroModel : public Model {
+- public:
+-  virtual DataSource* GetAngleData() = 0;
+-  virtual DataSource* GetRateData() = 0;
+-
+-  virtual void SetAngle(double val) = 0;
+-  virtual void SetRate(double val) = 0;
+-};
+-
+-class AnalogGyrosModel : public Model {
+- public:
+-  virtual void ForEachAnalogGyro(
+-      wpi::function_ref<void(AnalogGyroModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayAnalogGyroDevice(AnalogGyroModel* model, int index);
+-void DisplayAnalogGyrosDevice(AnalogGyrosModel* model);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/AnalogInput.h b/glass/src/lib/native/include/glass/hardware/AnalogInput.h
+deleted file mode 100644
+index 2e49b9ccc..000000000
+--- a/glass/src/lib/native/include/glass/hardware/AnalogInput.h
++++ /dev/null
+@@ -1,37 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class AnalogInputModel : public Model {
+- public:
+-  virtual bool IsGyro() const = 0;
+-  virtual const char* GetSimDevice() const = 0;
+-
+-  virtual DataSource* GetVoltageData() = 0;
+-
+-  virtual void SetVoltage(double val) = 0;
+-};
+-
+-class AnalogInputsModel : public Model {
+- public:
+-  virtual void ForEachAnalogInput(
+-      wpi::function_ref<void(AnalogInputModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayAnalogInput(AnalogInputModel* model, int index);
+-void DisplayAnalogInputs(AnalogInputsModel* model,
+-                         std::string_view noneMsg = "No analog inputs");
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/AnalogOutput.h b/glass/src/lib/native/include/glass/hardware/AnalogOutput.h
+deleted file mode 100644
+index 7ba8be6dd..000000000
+--- a/glass/src/lib/native/include/glass/hardware/AnalogOutput.h
++++ /dev/null
+@@ -1,30 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class AnalogOutputModel : public Model {
+- public:
+-  virtual DataSource* GetVoltageData() = 0;
+-
+-  virtual void SetVoltage(double val) = 0;
+-};
+-
+-class AnalogOutputsModel : public Model {
+- public:
+-  virtual void ForEachAnalogOutput(
+-      wpi::function_ref<void(AnalogOutputModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayAnalogOutputsDevice(AnalogOutputsModel* model);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/DIO.h b/glass/src/lib/native/include/glass/hardware/DIO.h
+deleted file mode 100644
+index 5593ba69d..000000000
+--- a/glass/src/lib/native/include/glass/hardware/DIO.h
++++ /dev/null
+@@ -1,63 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class EncoderModel;
+-class DataSource;
+-
+-class DPWMModel : public Model {
+- public:
+-  virtual const char* GetSimDevice() const = 0;
+-
+-  virtual DataSource* GetValueData() = 0;
+-
+-  virtual void SetValue(double val) = 0;
+-};
+-
+-class DutyCycleModel : public Model {
+- public:
+-  virtual const char* GetSimDevice() const = 0;
+-
+-  virtual DataSource* GetValueData() = 0;
+-
+-  virtual void SetValue(double val) = 0;
+-};
+-
+-class DIOModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-
+-  virtual const char* GetSimDevice() const = 0;
+-
+-  virtual DPWMModel* GetDPWM() = 0;
+-  virtual DutyCycleModel* GetDutyCycle() = 0;
+-  virtual EncoderModel* GetEncoder() = 0;
+-
+-  virtual bool IsInput() const = 0;
+-
+-  virtual DataSource* GetValueData() = 0;
+-
+-  virtual void SetValue(bool val) = 0;
+-};
+-
+-class DIOsModel : public Model {
+- public:
+-  virtual void ForEachDIO(
+-      wpi::function_ref<void(DIOModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayDIO(DIOModel* model, int index, bool outputsEnabled);
+-void DisplayDIOs(DIOsModel* model, bool outputsEnabled,
+-                 std::string_view noneMsg = "No Digital I/O");
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/Encoder.h b/glass/src/lib/native/include/glass/hardware/Encoder.h
+deleted file mode 100644
+index 41d781aa9..000000000
+--- a/glass/src/lib/native/include/glass/hardware/Encoder.h
++++ /dev/null
+@@ -1,57 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class EncoderModel : public Model {
+- public:
+-  virtual void SetName(std::string_view name);
+-
+-  virtual const char* GetSimDevice() const = 0;
+-
+-  virtual int GetChannelA() const = 0;
+-  virtual int GetChannelB() const = 0;
+-
+-  virtual DataSource* GetDistancePerPulseData() = 0;
+-  virtual DataSource* GetCountData() = 0;
+-  virtual DataSource* GetPeriodData() = 0;
+-  virtual DataSource* GetDirectionData() = 0;
+-  virtual DataSource* GetDistanceData() = 0;
+-  virtual DataSource* GetRateData() = 0;
+-
+-  virtual double GetMaxPeriod() = 0;
+-  virtual bool GetReverseDirection() = 0;
+-
+-  virtual void SetDistancePerPulse(double val) = 0;
+-  virtual void SetCount(int val) = 0;
+-  virtual void SetPeriod(double val) = 0;
+-  virtual void SetDirection(bool val) = 0;
+-  virtual void SetDistance(double val) = 0;
+-  virtual void SetRate(double val) = 0;
+-
+-  virtual void SetMaxPeriod(double val) = 0;
+-  virtual void SetReverseDirection(bool val) = 0;
+-};
+-
+-class EncodersModel : public Model {
+- public:
+-  virtual void ForEachEncoder(
+-      wpi::function_ref<void(EncoderModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayEncoder(EncoderModel* model);
+-void DisplayEncoders(EncodersModel* model,
+-                     std::string_view noneMsg = "No encoders");
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/Gyro.h b/glass/src/lib/native/include/glass/hardware/Gyro.h
+deleted file mode 100644
+index d2bb09d2a..000000000
+--- a/glass/src/lib/native/include/glass/hardware/Gyro.h
++++ /dev/null
+@@ -1,20 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-class DataSource;
+-class GyroModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-  virtual const char* GetSimDevice() const = 0;
+-
+-  virtual DataSource* GetAngleData() = 0;
+-  virtual void SetAngle(double angle) = 0;
+-};
+-void DisplayGyro(GyroModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/LEDDisplay.h b/glass/src/lib/native/include/glass/hardware/LEDDisplay.h
+deleted file mode 100644
+index 3aee6ae0f..000000000
+--- a/glass/src/lib/native/include/glass/hardware/LEDDisplay.h
++++ /dev/null
+@@ -1,45 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <span>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace wpi {
+-template <typename T>
+-class SmallVectorImpl;
+-}  // namespace wpi
+-
+-namespace glass {
+-
+-class LEDDisplayModel : public glass::Model {
+- public:
+-  struct Data {
+-    uint8_t b;
+-    uint8_t g;
+-    uint8_t r;
+-    uint8_t padding;
+-  };
+-
+-  virtual bool IsRunning() = 0;
+-
+-  virtual std::span<const Data> GetData(wpi::SmallVectorImpl<Data>& buf) = 0;
+-};
+-
+-class LEDDisplaysModel : public glass::Model {
+- public:
+-  virtual size_t GetNumLEDDisplays() = 0;
+-
+-  virtual void ForEachLEDDisplay(
+-      wpi::function_ref<void(LEDDisplayModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayLEDDisplay(LEDDisplayModel* model, int index);
+-void DisplayLEDDisplays(LEDDisplaysModel* model);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/MotorController.h b/glass/src/lib/native/include/glass/hardware/MotorController.h
+deleted file mode 100644
+index 5fc831f23..000000000
+--- a/glass/src/lib/native/include/glass/hardware/MotorController.h
++++ /dev/null
+@@ -1,19 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-class DataSource;
+-class MotorControllerModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-  virtual const char* GetSimDevice() const = 0;
+-  virtual DataSource* GetPercentData() = 0;
+-  virtual void SetPercent(double value) = 0;
+-};
+-void DisplayMotorController(MotorControllerModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/PCM.h b/glass/src/lib/native/include/glass/hardware/PCM.h
+deleted file mode 100644
+index 107a2a84f..000000000
+--- a/glass/src/lib/native/include/glass/hardware/PCM.h
++++ /dev/null
+@@ -1,60 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class CompressorModel : public Model {
+- public:
+-  virtual DataSource* GetRunningData() = 0;
+-  virtual DataSource* GetEnabledData() = 0;
+-  virtual DataSource* GetPressureSwitchData() = 0;
+-  virtual DataSource* GetCurrentData() = 0;
+-
+-  virtual void SetRunning(bool val) = 0;
+-  virtual void SetEnabled(bool val) = 0;
+-  virtual void SetPressureSwitch(bool val) = 0;
+-  virtual void SetCurrent(double val) = 0;
+-};
+-
+-class SolenoidModel : public Model {
+- public:
+-  virtual DataSource* GetOutputData() = 0;
+-
+-  virtual void SetOutput(bool val) = 0;
+-};
+-
+-class PCMModel : public Model {
+- public:
+-  virtual CompressorModel* GetCompressor() = 0;
+-
+-  virtual void ForEachSolenoid(
+-      wpi::function_ref<void(SolenoidModel& model, int index)> func) = 0;
+-};
+-
+-class PCMsModel : public Model {
+- public:
+-  virtual void ForEachPCM(
+-      wpi::function_ref<void(PCMModel& model, int index)> func) = 0;
+-};
+-
+-bool DisplayPCMSolenoids(PCMModel* model, int index, bool outputsEnabled);
+-void DisplayPCMsSolenoids(PCMsModel* model, bool outputsEnabled,
+-                          std::string_view noneMsg = "No solenoids");
+-
+-void DisplayCompressorDevice(PCMModel* model, int index, bool outputsEnabled);
+-void DisplayCompressorDevice(CompressorModel* model, int index,
+-                             bool outputsEnabled);
+-void DisplayCompressorsDevice(PCMsModel* model, bool outputsEnabled);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/PWM.h b/glass/src/lib/native/include/glass/hardware/PWM.h
+deleted file mode 100644
+index 74c7461c8..000000000
+--- a/glass/src/lib/native/include/glass/hardware/PWM.h
++++ /dev/null
+@@ -1,37 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class PWMModel : public Model {
+- public:
+-  // returns -1 if not an addressable LED
+-  virtual int GetAddressableLED() const = 0;
+-
+-  virtual DataSource* GetSpeedData() = 0;
+-
+-  virtual void SetSpeed(double val) = 0;
+-};
+-
+-class PWMsModel : public Model {
+- public:
+-  virtual void ForEachPWM(
+-      wpi::function_ref<void(PWMModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayPWM(PWMModel* model, int index, bool outputsEnabled);
+-void DisplayPWMs(PWMsModel* model, bool outputsEnabled,
+-                 std::string_view noneMsg = "No PWM outputs");
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/PowerDistribution.h b/glass/src/lib/native/include/glass/hardware/PowerDistribution.h
+deleted file mode 100644
+index 0ef600637..000000000
+--- a/glass/src/lib/native/include/glass/hardware/PowerDistribution.h
++++ /dev/null
+@@ -1,42 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class PowerDistributionModel : public Model {
+- public:
+-  virtual int GetNumChannels() const = 0;
+-
+-  virtual DataSource* GetTemperatureData() = 0;
+-  virtual DataSource* GetVoltageData() = 0;
+-  virtual DataSource* GetCurrentData(int channel) = 0;
+-
+-  virtual void SetTemperature(double val) = 0;
+-  virtual void SetVoltage(double val) = 0;
+-  virtual void SetCurrent(int channel, double val) = 0;
+-};
+-
+-class PowerDistributionsModel : public Model {
+- public:
+-  virtual void ForEachPowerDistribution(
+-      wpi::function_ref<void(PowerDistributionModel& model, int index)>
+-          func) = 0;
+-};
+-
+-void DisplayPowerDistribution(PowerDistributionModel* model, int index);
+-void DisplayPowerDistributions(
+-    PowerDistributionsModel* model,
+-    std::string_view noneMsg = "No Power Distributions");
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/Relay.h b/glass/src/lib/native/include/glass/hardware/Relay.h
+deleted file mode 100644
+index b025119b6..000000000
+--- a/glass/src/lib/native/include/glass/hardware/Relay.h
++++ /dev/null
+@@ -1,36 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class RelayModel : public Model {
+- public:
+-  virtual DataSource* GetForwardData() = 0;
+-  virtual DataSource* GetReverseData() = 0;
+-
+-  virtual void SetForward(bool val) = 0;
+-  virtual void SetReverse(bool val) = 0;
+-};
+-
+-class RelaysModel : public Model {
+- public:
+-  virtual void ForEachRelay(
+-      wpi::function_ref<void(RelayModel& model, int index)> func) = 0;
+-};
+-
+-void DisplayRelay(RelayModel* model, int index, bool outputsEnabled);
+-void DisplayRelays(RelaysModel* model, bool outputsEnabled,
+-                   std::string_view noneMsg = "No relays");
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/hardware/RoboRio.h b/glass/src/lib/native/include/glass/hardware/RoboRio.h
+deleted file mode 100644
+index df9a2a5d3..000000000
+--- a/glass/src/lib/native/include/glass/hardware/RoboRio.h
++++ /dev/null
+@@ -1,45 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class RoboRioRailModel : public Model {
+- public:
+-  virtual DataSource* GetVoltageData() = 0;
+-  virtual DataSource* GetCurrentData() = 0;
+-  virtual DataSource* GetActiveData() = 0;
+-  virtual DataSource* GetFaultsData() = 0;
+-
+-  virtual void SetVoltage(double val) = 0;
+-  virtual void SetCurrent(double val) = 0;
+-  virtual void SetActive(bool val) = 0;
+-  virtual void SetFaults(int val) = 0;
+-};
+-
+-class RoboRioModel : public Model {
+- public:
+-  virtual RoboRioRailModel* GetUser6VRail() = 0;
+-  virtual RoboRioRailModel* GetUser5VRail() = 0;
+-  virtual RoboRioRailModel* GetUser3V3Rail() = 0;
+-
+-  virtual DataSource* GetUserButton() = 0;
+-  virtual DataSource* GetVInVoltageData() = 0;
+-  virtual DataSource* GetVInCurrentData() = 0;
+-  virtual DataSource* GetBrownoutVoltage() = 0;
+-
+-  virtual void SetUserButton(bool val) = 0;
+-  virtual void SetVInVoltage(double val) = 0;
+-  virtual void SetVInCurrent(double val) = 0;
+-  virtual void SetBrownoutVoltage(double val) = 0;
+-};
+-
+-void DisplayRoboRio(RoboRioModel* model);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/CommandScheduler.h b/glass/src/lib/native/include/glass/other/CommandScheduler.h
+deleted file mode 100644
+index 66b92b2e4..000000000
+--- a/glass/src/lib/native/include/glass/other/CommandScheduler.h
++++ /dev/null
+@@ -1,21 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string>
+-#include <vector>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-class DataSource;
+-class CommandSchedulerModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-  virtual const std::vector<std::string>& GetCurrentCommands() = 0;
+-  virtual void CancelCommand(size_t index) = 0;
+-};
+-void DisplayCommandScheduler(CommandSchedulerModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/CommandSelector.h b/glass/src/lib/native/include/glass/other/CommandSelector.h
+deleted file mode 100644
+index e5126f2ad..000000000
+--- a/glass/src/lib/native/include/glass/other/CommandSelector.h
++++ /dev/null
+@@ -1,18 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-class DataSource;
+-class CommandSelectorModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-  virtual DataSource* GetRunningData() = 0;
+-  virtual void SetRunning(bool run) = 0;
+-};
+-void DisplayCommandSelector(CommandSelectorModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/Drive.h b/glass/src/lib/native/include/glass/other/Drive.h
+deleted file mode 100644
+index c9695829f..000000000
+--- a/glass/src/lib/native/include/glass/other/Drive.h
++++ /dev/null
+@@ -1,40 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <functional>
+-#include <string>
+-#include <string_view>
+-#include <utility>
+-#include <vector>
+-
+-#include "glass/Model.h"
+-
+-struct ImVec2;
+-
+-namespace glass {
+-class DataSource;
+-class DriveModel : public Model {
+- public:
+-  struct WheelInfo {
+-    std::string name;
+-    DataSource* percent;
+-    std::function<void(double)> setter;
+-
+-    WheelInfo(std::string_view name, DataSource* percent,
+-              std::function<void(double)> setter)
+-        : name(name), percent(percent), setter(std::move(setter)) {}
+-  };
+-
+-  virtual const char* GetName() const = 0;
+-  virtual const std::vector<WheelInfo>& GetWheels() const = 0;
+-
+-  virtual ImVec2 GetSpeedVector() const = 0;
+-
+-  // Clamped between -1 and 1 with -1 being full CCW.
+-  virtual double GetRotation() const = 0;
+-};
+-void DisplayDrive(DriveModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/FMS.h b/glass/src/lib/native/include/glass/other/FMS.h
+deleted file mode 100644
+index f039c15a7..000000000
+--- a/glass/src/lib/native/include/glass/other/FMS.h
++++ /dev/null
+@@ -1,54 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string_view>
+-
+-#include "glass/Model.h"
+-
+-namespace wpi {
+-template <typename T>
+-class SmallVectorImpl;
+-}  // namespace wpi
+-
+-namespace glass {
+-
+-class DataSource;
+-
+-class FMSModel : public Model {
+- public:
+-  virtual DataSource* GetFmsAttachedData() = 0;
+-  virtual DataSource* GetDsAttachedData() = 0;
+-  virtual DataSource* GetAllianceStationIdData() = 0;
+-  virtual DataSource* GetMatchTimeData() = 0;
+-  virtual DataSource* GetEStopData() = 0;
+-  virtual DataSource* GetEnabledData() = 0;
+-  virtual DataSource* GetTestData() = 0;
+-  virtual DataSource* GetAutonomousData() = 0;
+-  virtual std::string_view GetGameSpecificMessage(
+-      wpi::SmallVectorImpl<char>& buf) = 0;
+-
+-  virtual void SetFmsAttached(bool val) = 0;
+-  virtual void SetDsAttached(bool val) = 0;
+-  virtual void SetAllianceStationId(int val) = 0;
+-  virtual void SetMatchTime(double val) = 0;
+-  virtual void SetEStop(bool val) = 0;
+-  virtual void SetEnabled(bool val) = 0;
+-  virtual void SetTest(bool val) = 0;
+-  virtual void SetAutonomous(bool val) = 0;
+-  virtual void SetGameSpecificMessage(std::string_view val) = 0;
+-};
+-
+-/**
+- * Displays FMS view.
+- *
+- * @param matchTimeEnabled If not null, a checkbox is displayed for
+- *                         "enable match time" linked to this value
+- * @param editableDsAttached If true, DS attached should be editable
+- */
+-void DisplayFMS(FMSModel* model, bool editableDsAttached);
+-void DisplayFMSReadOnly(FMSModel* model);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/Field2D.h b/glass/src/lib/native/include/glass/other/Field2D.h
+deleted file mode 100644
+index 2b0f9a8ef..000000000
+--- a/glass/src/lib/native/include/glass/other/Field2D.h
++++ /dev/null
+@@ -1,58 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <span>
+-#include <string_view>
+-
+-#include <frc/geometry/Pose2d.h>
+-#include <frc/geometry/Rotation2d.h>
+-#include <frc/geometry/Translation2d.h>
+-
+-#define IMGUI_DEFINE_MATH_OPERATORS
+-#include <imgui.h>
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-#include "glass/View.h"
+-
+-namespace glass {
+-
+-class FieldObjectModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-
+-  virtual std::span<const frc::Pose2d> GetPoses() = 0;
+-  virtual void SetPoses(std::span<const frc::Pose2d> poses) = 0;
+-  virtual void SetPose(size_t i, frc::Pose2d pose) = 0;
+-  virtual void SetPosition(size_t i, frc::Translation2d pos) = 0;
+-  virtual void SetRotation(size_t i, frc::Rotation2d rot) = 0;
+-};
+-
+-class Field2DModel : public Model {
+- public:
+-  virtual FieldObjectModel* AddFieldObject(std::string_view name) = 0;
+-  virtual void RemoveFieldObject(std::string_view name) = 0;
+-  virtual void ForEachFieldObject(
+-      wpi::function_ref<void(FieldObjectModel& model, std::string_view name)>
+-          func) = 0;
+-};
+-
+-void DisplayField2D(Field2DModel* model, const ImVec2& contentSize);
+-void DisplayField2DSettings(Field2DModel* model);
+-
+-class Field2DView : public View {
+- public:
+-  explicit Field2DView(Field2DModel* model) : m_model{model} {}
+-
+-  void Display() override;
+-  void Settings() override;
+-  bool HasSettings() override;
+-
+- private:
+-  Field2DModel* m_model;
+-};
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/Mechanism2D.h b/glass/src/lib/native/include/glass/other/Mechanism2D.h
+deleted file mode 100644
+index 440fed38b..000000000
+--- a/glass/src/lib/native/include/glass/other/Mechanism2D.h
++++ /dev/null
+@@ -1,67 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <frc/geometry/Rotation2d.h>
+-#include <frc/geometry/Translation2d.h>
+-
+-#define IMGUI_DEFINE_MATH_OPERATORS
+-#include <imgui.h>
+-#include <wpi/function_ref.h>
+-
+-#include "glass/Model.h"
+-#include "glass/View.h"
+-
+-namespace glass {
+-
+-class MechanismObjectModel;
+-
+-class MechanismObjectGroup {
+- public:
+-  virtual const char* GetName() const = 0;
+-  virtual void ForEachObject(
+-      wpi::function_ref<void(MechanismObjectModel& model)> func) = 0;
+-};
+-
+-class MechanismObjectModel : public MechanismObjectGroup {
+- public:
+-  virtual const char* GetType() const = 0;
+-  virtual ImU32 GetColor() const = 0;
+-
+-  // line accessors
+-  virtual double GetWeight() const = 0;
+-  virtual frc::Rotation2d GetAngle() const = 0;
+-  virtual units::meter_t GetLength() const = 0;
+-};
+-
+-class MechanismRootModel : public MechanismObjectGroup {
+- public:
+-  virtual frc::Translation2d GetPosition() const = 0;
+-};
+-
+-class Mechanism2DModel : public Model {
+- public:
+-  virtual frc::Translation2d GetDimensions() const = 0;
+-  virtual ImU32 GetBackgroundColor() const = 0;
+-  virtual void ForEachRoot(
+-      wpi::function_ref<void(MechanismRootModel& model)> func) = 0;
+-};
+-
+-void DisplayMechanism2D(Mechanism2DModel* model, const ImVec2& contentSize);
+-void DisplayMechanism2DSettings(Mechanism2DModel* model);
+-
+-class Mechanism2DView : public View {
+- public:
+-  explicit Mechanism2DView(Mechanism2DModel* model) : m_model{model} {}
+-
+-  void Display() override;
+-  void Settings() override;
+-  bool HasSettings() override;
+-
+- private:
+-  Mechanism2DModel* m_model;
+-};
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/PIDController.h b/glass/src/lib/native/include/glass/other/PIDController.h
+deleted file mode 100644
+index 8c11c5914..000000000
+--- a/glass/src/lib/native/include/glass/other/PIDController.h
++++ /dev/null
+@@ -1,28 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-class DataSource;
+-class PIDControllerModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-
+-  virtual DataSource* GetPData() = 0;
+-  virtual DataSource* GetIData() = 0;
+-  virtual DataSource* GetDData() = 0;
+-  virtual DataSource* GetSetpointData() = 0;
+-  virtual DataSource* GetIZoneData() = 0;
+-
+-  virtual void SetP(double value) = 0;
+-  virtual void SetI(double value) = 0;
+-  virtual void SetD(double value) = 0;
+-  virtual void SetSetpoint(double value) = 0;
+-  virtual void SetIZone(double value) = 0;
+-};
+-void DisplayPIDController(PIDControllerModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/ProfiledPIDController.h b/glass/src/lib/native/include/glass/other/ProfiledPIDController.h
+deleted file mode 100644
+index bebf3abb0..000000000
+--- a/glass/src/lib/native/include/glass/other/ProfiledPIDController.h
++++ /dev/null
+@@ -1,28 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-class DataSource;
+-class ProfiledPIDControllerModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-
+-  virtual DataSource* GetPData() = 0;
+-  virtual DataSource* GetIData() = 0;
+-  virtual DataSource* GetDData() = 0;
+-  virtual DataSource* GetGoalData() = 0;
+-  virtual DataSource* GetIZoneData() = 0;
+-
+-  virtual void SetP(double value) = 0;
+-  virtual void SetI(double value) = 0;
+-  virtual void SetD(double value) = 0;
+-  virtual void SetGoal(double value) = 0;
+-  virtual void SetIZone(double value) = 0;
+-};
+-void DisplayProfiledPIDController(ProfiledPIDControllerModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/StringChooser.h b/glass/src/lib/native/include/glass/other/StringChooser.h
+deleted file mode 100644
+index 066c44408..000000000
+--- a/glass/src/lib/native/include/glass/other/StringChooser.h
++++ /dev/null
+@@ -1,27 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <string>
+-#include <string_view>
+-#include <vector>
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-
+-class StringChooserModel : public Model {
+- public:
+-  virtual const std::string& GetDefault() = 0;
+-  virtual const std::string& GetSelected() = 0;
+-  virtual const std::string& GetActive() = 0;
+-  virtual const std::vector<std::string>& GetOptions() = 0;
+-
+-  virtual void SetSelected(std::string_view val) = 0;
+-};
+-
+-void DisplayStringChooser(StringChooserModel* model);
+-
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/other/Subsystem.h b/glass/src/lib/native/include/glass/other/Subsystem.h
+deleted file mode 100644
+index db79db583..000000000
+--- a/glass/src/lib/native/include/glass/other/Subsystem.h
++++ /dev/null
+@@ -1,18 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include "glass/Model.h"
+-
+-namespace glass {
+-class DataSource;
+-class SubsystemModel : public Model {
+- public:
+-  virtual const char* GetName() const = 0;
+-  virtual const char* GetDefaultCommand() const = 0;
+-  virtual const char* GetCurrentCommand() const = 0;
+-};
+-void DisplaySubsystem(SubsystemModel* m);
+-}  // namespace glass
+diff --git a/glass/src/lib/native/include/glass/support/DataLogReaderThread.h b/glass/src/lib/native/include/glass/support/DataLogReaderThread.h
+deleted file mode 100644
+index bcbc9623e..000000000
+--- a/glass/src/lib/native/include/glass/support/DataLogReaderThread.h
++++ /dev/null
+@@ -1,101 +0,0 @@
+-// Copyright (c) FIRST and other WPILib contributors.
+-// Open Source Software; you can modify and/or share it under the terms of
+-// the WPILib BSD license file in the root directory of this project.
+-
+-#pragma once
+-
+-#include <atomic>
+-#include <functional>
+-#include <map>
+-#include <string>
+-#include <string_view>
+-#include <thread>
+-#include <utility>
+-#include <vector>
+-
+-#include <wpi/DataLogReader.h>
+-#include <wpi/DenseMap.h>
+-#include <wpi/Signal.h>
+-#include <wpi/mutex.h>
+-#include <wpi/protobuf/ProtobufMessageDatabase.h>
+-#include <wpi/struct/DynamicStruct.h>
+-
+-namespace glass {
+-
+-class DataLogReaderRange {
+- public:
+-  DataLogReaderRange(wpi::log::DataLogReader::iterator begin,
+-                     wpi::log::DataLogReader::iterator end)
+-      : m_begin{begin}, m_end{end} {}
+-
+-  wpi::log::DataLogReader::iterator begin() const { return m_begin; }
+-  wpi::log::DataLogReader::iterator end() const { return m_end; }
+-
+-  wpi::log::DataLogReader::iterator m_begin;
+-  wpi::log::DataLogReader::iterator m_end;
+-};
+-
+-class DataLogReaderEntry : public wpi::log::StartRecordData {
+- public:
+-  std::vector<DataLogReaderRange> ranges;  // ranges where this entry is valid
+-};
+-
+-class DataLogReaderThread {
+- public:
+-  explicit DataLogReaderThread(wpi::log::DataLogReader reader)
+-      : m_reader{std::move(reader)}, m_thread{[this] { ReadMain(); }} {}
+-  ~DataLogReaderThread();
+-
+-  bool IsDone() const { return m_done; }
+-  std::string_view GetBufferIdentifier() const {
+-    return m_reader.GetBufferIdentifier();
+-  }
+-  unsigned int GetNumRecords() const { return m_numRecords; }
+-  unsigned int GetNumEntries() const {
+-    std::scoped_lock lock{m_mutex};
+-    return m_entriesByName.size();
+-  }
+-
+-  // Passes Entry& to func
+-  template <typename T>
+-  void ForEachEntryName(T&& func) {
+-    std::scoped_lock lock{m_mutex};
+-    for (auto&& kv : m_entriesByName) {
+-      func(kv.second);
+-    }
+-  }
+-
+-  const DataLogReaderEntry* GetEntry(std::string_view name) const {
+-    std::scoped_lock lock{m_mutex};
+-    auto it = m_entriesByName.find(name);
+-    if (it == m_entriesByName.end()) {
+-      return nullptr;
+-    }
+-    return &it->second;
+-  }
+-
+-  wpi::StructDescriptorDatabase& GetStructDatabase() { return m_structDb; }
+-  wpi::ProtobufMessageDatabase& GetProtobufDatabase() { return m_protoDb; }
+-
+-  const wpi::log::DataLogReader& GetReader() const { return m_reader; }
+-
+-  // note: these are called on separate thread
+-  wpi::sig::Signal_mt<const DataLogReaderEntry&> sigEntryAdded;
+-  wpi::sig::Signal_mt<> sigDone;
+-
+- private:
+-  void ReadMain();
+-
+-  wpi::log::DataLogReader m_reader;
+-  mutable wpi::mutex m_mutex;
+-  std::atomic_bool m_active{true};
+-  std::atomic_bool m_done{false};
+-  std::atomic<unsigned int> m_numRecords{0};
+-  std::map<std::string, DataLogReaderEntry, std::less<>> m_entriesByName;
+-  wpi::DenseMap<int, DataLogReaderEntry*> m_entriesById;
+-  wpi::StructDescriptorDatabase m_structDb;
+-  wpi::ProtobufMessageDatabase m_protoDb;
+-  std::thread m_thread;
+-};
+-
+-}  // namespace glass
