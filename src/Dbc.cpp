@@ -23,8 +23,7 @@ bool DbcManager::addDatabase(std::filesystem::path path) {
 		std::unique_ptr<dbcppp::INetwork> dbcNetwork = dbcppp::INetwork::LoadDBCFromIs(filestream);
 		if (!dbcNetwork) { return false; }
 
-		DbcDatabase newdb{path, std::move(dbcNetwork)};
-		sDatabases.push_back(std::move(newdb));
+		sDatabases.emplace_back(path, std::move(dbcNetwork));
 		return true;
 	} else return false;
 }
@@ -46,13 +45,21 @@ static void DisplaySignal(const dbcppp::ISignal& sig) {
 	}
 }
 
+static void DisplaySignalEditor(const dbcppp::ISignal& sig) {
+}
+
 static void DisplayMessage(const dbcppp::IMessage& msg) {
 	std::string msgTitle = fmt::format("0x{:3x} ({})", msg.Id(), msg.Name());
 	if(ImGui::TreeNode(msgTitle.c_str())) {
 		ImGui::Text("ID: 0x%lX (%lu)", msg.Id(), msg.Id());
+		ImGui::Text("Transmitter: %s", msg.Transmitter().c_str());
 		ImGui::Text("Signals: %lu", msg.Signals_Size());
 		ImGui::Text("Size: %lu", msg.MessageSize());
-		ImGui::Text("Transmitter: %s", msg.Transmitter().c_str());
+		ImGui::Text("Comment: %s", msg.Comment().c_str());
+
+		if(ImGui::Button("Add Signal")) {
+			std::cout << "later dawg" << std::endl;
+		}
 
 		for (const dbcppp::ISignal& sig : msg.Signals()) {
 			DisplaySignal(sig);
@@ -61,17 +68,28 @@ static void DisplayMessage(const dbcppp::IMessage& msg) {
 	}
 }
 
-static void DisplayDatabase(DbcDatabase& dbc) {
-	if (ImGui::TreeNode(dbc.filename.c_str())) {
-		ImGui::Text("Path: %s", dbc.filepath.c_str());
-		ImGui::Text("Node Size: %lu", dbc.network->Nodes_Size());
-		ImGui::Text("Messages Size: %lu", dbc.network->Messages_Size());
-		ImGui::Text("Version: %s", dbc.network->Version().c_str());
-
-		for (const dbcppp::IMessage& msg : dbc.network->Messages()) {
-			DisplayMessage(msg);
-		}
+static void DisplayNode(const dbcppp::INode& node) {
+	if (ImGui::TreeNode(node.Name().c_str())) {
+		ImGui::Text("Comment: %s", node.Comment().c_str());
 		ImGui::TreePop();
+	}
+}
+
+static void DisplayDatabase(DbcDatabase& dbc) {
+	ImGui::Text("Path: %s", dbc.filepath.c_str());
+	ImGui::Text("Node Size: %lu", dbc.getNetwork()->Nodes_Size());
+	ImGui::Text("Messages Size: %lu", dbc.getNetwork()->Messages_Size());
+	ImGui::Text("Version: %s", dbc.getNetwork()->Version().c_str());
+
+	if(ImGui::Button("Add Message")) {
+		static int idIncr = 1000;
+		std::cout << "later dawg" << std::endl;
+		// todo: get input
+		dbc.hasChanges = true;
+	}
+
+	for (const dbcppp::IMessage& msg : dbc.getNetwork()->Messages()) {
+		DisplayMessage(msg);
 	}
 }
 
@@ -90,7 +108,7 @@ void DbcManager::DisplayLoader() {
 		std::cout << "DBC Load" << (loadOk ? "OK" : "FAIL") << std::endl;
 
 		ImGui::OpenPopup("DBC Load");
-		if (ImGui::BeginPopupModal("DBC Load")) {
+		if (ImGui::BeginPopup("DBC Load")) {
 
 			if (loadOk) {
 				ImGui::Text("Loaded %s in 0.69ms", filepath.c_str());
@@ -107,11 +125,33 @@ void DbcManager::DisplayLoader() {
 		}
 	}
 
-	ImGui::Text("DBCs");
 
-	for (auto &dbc : sDatabases) {
-		DisplayDatabase(dbc);
+	if (sDatabases.empty()) { return; }
+
+	// ImGui::Text("DBCs");
+	if (ImGui::BeginTabBar("DBCTabs")) {
+
+		for (auto it = sDatabases.begin(); it != sDatabases.end();) {
+			auto &dbc = *it;
+			bool open = true;
+			ImGuiTabItemFlags flags = dbc.hasChanges ?
+				ImGuiTabItemFlags_UnsavedDocument : ImGuiTabItemFlags_None;
+			if (ImGui::BeginTabItem(dbc.filename.c_str(), &open, flags)) {
+				DisplayDatabase(dbc);
+				ImGui::EndTabItem();
+			}
+
+			if (!open) {
+				// pls go bye bye
+				it = sDatabases.erase(it);
+			} else {
+				++it;
+			}
+		}
+
+		ImGui::EndTabBar();
 	}
+	
 }
 
 void DbcGui::GlobalInit() {

@@ -48,8 +48,10 @@ int main(int argc, char** argv) {
 
 	gMainMenu.AddMainMenu([] {
 		if (ImGui::BeginMenu("Windows")) {
-			if (ImGui::MenuItem("DBC Manager")) {
-				imcan::DbcGui::sDbcManager->GetWindow("Loader")->SetVisible(true);
+			bool dbcMgrVis = imcan::DbcGui::sDbcManager->GetWindow("Loader")->IsVisible();
+			std::string dbcMgrItem = dbcMgrVis ? "DBC Loader (Hide)" : "DBC Loader (Show)";
+			if (ImGui::MenuItem(dbcMgrItem.c_str())) {
+				imcan::DbcGui::sDbcManager->GetWindow("Loader")->SetVisible(!dbcMgrVis);
 			}
 			ImGui::EndMenu();
 		}
