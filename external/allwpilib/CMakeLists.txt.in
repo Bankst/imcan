@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.16)
 
 project(allwpilib-download NONE)
 
-set(glass_patch "/usr/bin/git apply --unsafe-paths --directory ${CMAKE_CURRENT_BINARY_DIR}/allwpilib-src ${CMAKE_CURRENT_LIST_DIR}/no_frc.patch")
 message(STATUS "running ${glass_patch}")
 include(ExternalProject)
 ExternalProject_Add(allwpilib
@@ -11,6 +10,7 @@ ExternalProject_Add(allwpilib
   SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/allwpilib-src"
   BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/allwpilib-build"
   PATCH_COMMAND     ${glass_patch}
+  UPDATE_DISCONNECTED True
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
   INSTALL_COMMAND   ""

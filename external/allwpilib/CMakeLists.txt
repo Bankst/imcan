@@ -8,6 +8,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(portable-file-dialogs)
 
 # Download and unpack allwpilib at configure time
+set(glass_patch "patch -p1 --forward < ${CMAKE_CURRENT_LIST_DIR}/no_frc.patch || true")
 configure_file(CMakeLists.txt.in allwpilib-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
   RESULT_VARIABLE result
