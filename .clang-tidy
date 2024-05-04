@@ -1,5 +1,5 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,cppcoreguidelines-*,modernize-*,-modernize-use-trailing-return-type'
+Checks:          'bugprone-*,clang-diagnostic-*,clang-analyzer-*,modernize-*,-modernize-use-trailing-return-type,-bugprone-easily-swappable-parameters'
 WarningsAsErrors: true
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
@@ -33,4 +33,3 @@ CheckOptions:
     value:           llvm
   - key:             modernize-use-nullptr.NullMacros
     value:           'NULL'
-...

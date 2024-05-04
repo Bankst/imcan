@@ -1,9 +1,9 @@
 ---
 BasedOnStyle: Google
-AccessModifierOffset: -2
-AlignAfterOpenBracket: Align
+AlignAfterOpenBracket: AlwaysBreak
 AlignConsecutiveMacros: true
 AlignEscapedNewlines: Left
+AlignOperands: AlignAfterOperator
 AllowAllConstructorInitializersOnNextLine: true
 AllowShortBlocksOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
@@ -13,7 +13,8 @@ AllowShortLoopsOnASingleLine: true
 AlwaysBreakBeforeMultilineStrings: true
 BreakBeforeBraces: Attach
 BreakBeforeTernaryOperators: true
-ColumnLimit: 80
+ColumnLimit: 100
+ContinuationIndentWidth: 2
 Cpp11BracedListStyle: false
 DerivePointerAlignment: true
 FixNamespaceComments: true
