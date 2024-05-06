@@ -6,6 +6,7 @@
 #include <optional>
 #include <regex>
 #include <string>
+#include <string_view>
 
 namespace dbcan {
 
@@ -27,15 +28,24 @@ class Signal {
 	double offset;
 	std::pair<int, int> valueRange;  // Signal value range
 	std::optional<std::string> unit;
-	std::string node;
+	std::string transmitter;
 
 	friend std::istream& operator>>(std::istream& is, Signal& sig);
 
-	std::string toString(int indentCount = 0) const;
+	// TODO: toDbcString
+	std::string toPrettyString(int indentCount = 0) const;
+
+	static Signal fromString(std::string_view line);
 
  private:
 	static constexpr auto kSigRegex =
 		R"~(\sSG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([+-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+)\|(-?\d+)\]\s*['"]([^'"]*)['"]\s+(\w+))~";
+
+#ifdef USE_CTRE
+	static constexpr auto kSigRegexCtre = ctll::fixed_string {
+		R"~(\sSG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([+-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+)\|(-?\d+)\]\s*['"]([^'"]*)['"]\s+(\w+))~"
+	};
+#endif
 	static const std::regex rgx_;
 };
 

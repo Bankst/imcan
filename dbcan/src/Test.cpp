@@ -13,14 +13,14 @@ int main2() {
 		"SG_ Sensor1Value : 24|16@1+ (1,0) [0|65535] 'g' InstrumentCluster");
 
 	dbcan::Signal sig;
-	while (signalData >> sig) { std::cout << sig.toString() << std::endl; }
+	while (signalData >> sig) { std::cout << sig.toPrettyString() << std::endl; }
 
 	return 0;
 }
 
 int main() {
 	// Create a network from the DBC file
-	std::optional<dbcan::Network> networkOpt = dbcan::Network::createFromDBC("vehicle.dbc");
+	std::optional<dbcan::Network> networkOpt = dbcan::Network::createFromDBC("canandcoder.dbc");
 	if (!networkOpt) {
 		fmt::println(stderr, "DBC load failure!");
 		return 1;
@@ -45,7 +45,7 @@ int main() {
 		fmt::println(
 			"  Message ID: {}, Name: {}, Length: {}, Signals: {}", id, msg.name, msg.length,
 			msg.signals.size());
-		for (const auto& signal : msg.signals) { std::cout << signal.toString(2) << std::endl; }
+		for (const auto& signal : msg.signals) { std::cout << signal.toPrettyString(2) << std::endl; }
 	}
 
 	return 0;

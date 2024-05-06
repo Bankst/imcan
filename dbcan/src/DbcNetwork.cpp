@@ -1,7 +1,14 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <sstream>
+#include <string_view>
+
+#ifndef USE_CTRE
 #include <regex>
+#else
+#include <ctre.hpp>
+#endif
 
 #include "DbcMessage.h"
 #include "DbcNetwork.h"
@@ -22,22 +29,43 @@ std::optional<Network> Network::createFromDBC(const std::string &filename) {
 	std::string line;
 	Message curMsg = {};
 	while (std::getline(file, line)) {
-		std::istringstream iss(line);
-		std::smatch match;
+		std::string_view lineView { line };
 
-		if (line.empty() || line[0] == '#') {
+		auto pos = lineView.find_first_not_of(' ');
+		lineView = lineView.substr(pos != std::string::npos ? pos : 0);
+
+#ifndef USE_CTRE
+		std::smatch match;
+		line = lineView;
+#endif
+
+		if (lineView.empty() || lineView[0] == '#') {
 			continue;
-		} else if (line.find("VERSION ") == 0) {
-			std::regex versionRegex("VERSION \"([^\"]+)\"");
-			if (std::regex_search(line, match, versionRegex) && match.size() > 1) {
-				net.version = match[1].str();
+		} else if (lineView.find("VERSION ") == 0) {
+#ifndef USE_CTRE
+			std::regex versionRegex(kVersionRegex);
+			auto regok = std::regex_search(line, match, versionRegex) && match.size() > 1;
+			net.version = regok ? std::make_optional(match[1].str()) : std::nullopt;
+#else
+			if (auto [whole, version] = ctre::match<kVersionRegexCtre>(lineView); whole) {
+				net.version = version;
 			} else {
 				net.version = std::nullopt;
 			}
-		} else if (line.find("BU_:") == 0) {
-			std::regex nodesRegex("BU_: ([^;]+)");
-			if (std::regex_search(line, match, nodesRegex) && match.size() > 1) {
-				std::istringstream nodesStream(match[1].str());
+#endif
+		} else if (lineView.find("BU_:") == 0) {
+			std::istringstream nodesStream = {};
+#ifndef USE_CTRE
+			std::regex versionRegex(kNodesRegex);
+			if (std::regex_search(line, match, versionRegex) && match.size() > 1) {
+				nodesStream = std::istringstream { match[1].str() };
+			}
+#else
+			if (auto [whole, nodes] = ctre::match<kNodesRegexCtre>(lineView); whole) {
+				nodesStream = std::istringstream { nodes.str() };
+			}
+#endif
+			if (!nodesStream.str().empty()) {
 				std::string node;
 				while (nodesStream >> node) { net.unusedNodes.push_back(node); }
 			}
@@ -46,17 +74,20 @@ std::optional<Network> Network::createFromDBC(const std::string &filename) {
 				net.messages[curMsg.id] = curMsg;
 				curMsg.signals.clear();
 			}
-			iss >> curMsg;
+			curMsg = Message::fromString(line);
 		} else if (line.find(" SG_ ") == 0 && curMsg.id != 0) {
-			Signal sig;
-			iss >> sig;
+			Signal sig = Signal::fromString(line);
 			// TODO: maybe sort signals by start bit ascending?
 			curMsg.signals.push_back(sig);
 		} else if (line.find("BA_") == 0) {
-			std::regex attrRegex("BA_ \"(\\w+)\" (BO_|BU_|SG_) (\\d+) (\"[^\"]+\");");
-			if (std::regex_search(line, match, attrRegex) && match.size() == 5) {
-				net.attributes[match[1].str() + match[3].str()] = match[4].str();
-			}
+#ifndef USE_CTRE
+// std::regex attrRegex(kAttrsRegex);
+// if (std::regex_search(line, match, attrRegex) && match.size() == 5) {
+// 	net.attributes[match[1].str() + match[3].str()] = match[4].str();
+// }
+#else
+			// if (auto [whole, ])
+#endif
 		}
 
 		if (curMsg.id != 0) { net.messages[curMsg.id] = curMsg; }
