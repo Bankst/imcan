@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "DbcMessage.h"
+#include "ctre.hpp"
 
 namespace dbcan {
 

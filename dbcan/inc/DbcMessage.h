@@ -8,6 +8,10 @@
 
 #include "DbcSignal.h"
 
+#ifdef USE_CTRE
+#include "ctre.hpp"
+#endif
+
 namespace dbcan {
 
 class Message {
@@ -22,13 +26,13 @@ class Message {
 	friend std::istream& operator>>(std::istream& is, Message& msg);
 
 	// TODO: toDbcString
-	static Message fromString(std::string_view line);
+	static std::optional<Message> fromString(std::string_view line);
 
  private:
 	static constexpr auto kMsgRegex = R"(BO_\s*(\d+)\s+(\w+):\s*(\d+)\s(\w+).*)";
 #ifdef USE_CTRE
 	static constexpr auto kMsgRegexCtre =
-		ctll::fixed_string { R"(BO_\s*(\d+)\s+(\w+):\s*(\d+)\s(\w+).*)" };
+		ctll::fixed_string { R"~(BO_\s*(\d+)\s+(\w+):\s*(\d+)\s(\w+).*)~" };
 #endif
 
 	static const std::regex rgx_;

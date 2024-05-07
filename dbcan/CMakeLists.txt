@@ -20,8 +20,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 	fmt
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-	-DUSE_CTRE
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+	USE_CTRE
 )
 
 add_executable(${PROJECT_NAME}_test)
