@@ -84,7 +84,7 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 			}
 		} else if (isSig && msg_counter != -1) {
 			if (auto sig = Signal::fromString(line); sig) {
-				net->messages[msg_counter].signals.push_back(std::move(sig.value()));
+				net->messages[msg_counter].signals.push_back(sig.value());
 				sig_counter++;
 			} else {
 				fmt::println("Err: failed parse sig: {}", line);
