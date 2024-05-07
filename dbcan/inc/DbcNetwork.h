@@ -14,12 +14,12 @@ namespace dbcan {
 
 class Network {
  public:
-	std::optional<std::string_view> version;
+	std::string_view version = "";
 	std::unordered_map<std::string_view, std::string_view> attributes;
 	std::vector<std::string_view> unusedNodes;
 	std::map<uint64_t, Message> messages;
 
-	static std::optional<Network> createFromDBC(const std::string& filename);
+	static std::shared_ptr<Network> createFromDBC(const std::string& filename);
 	// TODO: toDbcString
 
  private:

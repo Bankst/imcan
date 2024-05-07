@@ -19,12 +19,13 @@ using namespace std::chrono;
 
 namespace dbcan {
 
-std::optional<Network> Network::createFromDBC(const std::string &filename) {
-	Network net;
+std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
+	auto net = std::make_shared<Network>();  // todo: is this best?
+
 	std::ifstream file(filename, std::ios::binary);
 	if (!file.is_open()) {
 		std::cerr << "Failed to open file: " << filename << std::endl;
-		return std::nullopt;
+		return nullptr;
 	}
 
 	// TODO: fail if insufficient tokens found
@@ -56,9 +57,7 @@ std::optional<Network> Network::createFromDBC(const std::string &filename) {
 			net.version = regok ? std::make_optional(match[1].str()) : std::nullopt;
 #else
 			if (auto [whole, version] = ctre::match<kVersionRegexCtre>(lineView); whole) {
-				net.version = version;
-			} else {
-				net.version = std::nullopt;
+				net->version = version;
 			}
 #endif
 		} else if (isNodes) {
@@ -75,17 +74,17 @@ std::optional<Network> Network::createFromDBC(const std::string &filename) {
 #endif
 			if (!nodesStream.str().empty()) {
 				std::string node;
-				while (nodesStream >> node) { net.unusedNodes.push_back(node); }
+				while (nodesStream >> node) { net->unusedNodes.push_back(node); }
 			}
 		} else if (isMsg) {
 			if (auto msg = Message::fromString(line); msg) {
-				net.messages[++msg_counter] = std::move(msg.value());
+				net->messages[++msg_counter] = std::move(msg.value());
 			} else {
 				fmt::println("Err: failed parse msg: {}", line);
 			}
 		} else if (isSig && msg_counter != -1) {
 			if (auto sig = Signal::fromString(line); sig) {
-				net.messages[msg_counter].signals.push_back(std::move(sig.value()));
+				net->messages[msg_counter].signals.push_back(std::move(sig.value()));
 				sig_counter++;
 			} else {
 				fmt::println("Err: failed parse sig: {}", line);
@@ -106,7 +105,7 @@ std::optional<Network> Network::createFromDBC(const std::string &filename) {
 	auto parse_elapsed = steady_clock::now() - parse_begin;
 	auto nanos = duration_cast<nanoseconds>(parse_elapsed).count();
 	fmt::println(
-		"Parsed {} ({}msgs, {}sigs) in {:.3f} ms", filename, net.messages.size(), sig_counter,
+		"Parsed {} ({}msgs, {}sigs) in {:.3f} ms", filename, net->messages.size(), sig_counter,
 		(double) nanos / 1000000.0);
 
 	return net;

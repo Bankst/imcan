@@ -49,7 +49,7 @@ std::optional<Signal> Signal::fromString(std::string_view line) {
 				ctre::match<kSigRegexCtre>(line);
 			whole) {
 		sig.name = name;
-		sig.multiplexerIndicator = mux.to_optional_string();
+		sig.muxData = mux.to_optional_string();
 		sig.startBit = std::stoi(sbit.to_string());
 		sig.length = std::stoi(len.to_string());
 		sig.byteOrder = bord == "0" ? BigEndian : LittleEndian;
@@ -68,7 +68,7 @@ std::optional<Signal> Signal::fromString(std::string_view line) {
 }
 
 std::string Signal::toPrettyString(int indentCount) const {
-	std::string mux = multiplexerIndicator.has_value() ? multiplexerIndicator.value() : "N/A";
+	std::string mux = muxData.has_value() ? muxData.value() : "N/A";
 	std::string unitStr = unit.has_value() ? unit.value() : "N/A";
 	std::string byteOrderStr = byteOrder == BigEndian ? "BigEndian" : "LittleEndian";
 	std::string valueTypeStr = valueType == Unsigned ? "Unsigned" : "Signed";

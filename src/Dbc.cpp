@@ -1,7 +1,9 @@
-#include <fstream>
+#include "Dbc.h"
+
 #include <iostream>
 
-#include "Dbc.h"
+#include "DbcNetwork.h"
+#include "DbcSignal.h"
 #include "fmt/core.h"
 #include "glass/Context.h"
 
@@ -20,62 +22,64 @@ bool DbcManager::addDatabase(std::filesystem::path path) {
 		}
 		if (!isNew) { return false; }
 
-		auto filestream = std::ifstream { path };
-		std::unique_ptr<dbcppp::INetwork> dbcNetwork = dbcppp::INetwork::LoadDBCFromIs(filestream);
-		if (!dbcNetwork) { return false; }
-
-		sDatabases.emplace_back(path, std::move(dbcNetwork));
-		return true;
+		// TODO: ret optional, err handling, unique_ptr?
+		auto net = dbcan::Network::createFromDBC(path);
+		if (net) { sDatabases.emplace_back(path, net); }
+		return net != nullptr;
 	} else
 		return false;
 }
 
-static void DisplaySignal(const dbcppp::ISignal &sig) {
-	if (ImGui::TreeNode(sig.Name().c_str())) {
+static void DisplaySignal(const dbcan::Signal &sig) {
+	if (ImGui::TreeNode(sig.name.c_str())) {
 		ImGui::Text(
 			"ByteOrder: %s",
-			(sig.ByteOrder() == dbcppp::ISignal::EByteOrder::BigEndian) ? "BigEndian" : "LittleEndian");
-		ImGui::Text("Comment: %s", sig.Comment().c_str());
-		ImGui::Text("Unit: %s", sig.Unit().c_str());
-		ImGui::Text("Factor: %f", sig.Factor());
-		ImGui::Text("Minimum: %f", sig.Minimum());
-		ImGui::Text("Maximum: %f", sig.Maximum());
-		ImGui::Text("Offset: %f", sig.Offset());
+			(sig.byteOrder == dbcan::ByteOrder::BigEndian) ? "BigEndian" : "LittleEndian");
+		auto mux = sig.muxData ? sig.muxData->c_str() : "N/A";
+		ImGui::Text("MuxData: %s", mux);
+		// ImGui::Text("Comment: %s", sig.Comment().c_str());
+		ImGui::Text("StartBit: %d", sig.startBit);
+		ImGui::Text("Length (bits): %d", sig.length);
+		ImGui::Text("Scale: %f", sig.scale);
+		ImGui::Text("Offset: %f", sig.offset);
+		ImGui::Text("Range: [%f, %f]", sig.valueRange.first, sig.valueRange.second);
+		auto unit = sig.unit ? sig.unit->c_str() : "None";
+		ImGui::Text("Unit: %s", unit);
 
 		ImGui::TreePop();
 	}
 }
 
-static void DisplaySignalEditor(const dbcppp::ISignal &sig) {}
+static void DisplaySignalEditor(const dbcan::Signal &sig) {}
 
-static void DisplayMessage(const dbcppp::IMessage &msg) {
-	std::string msgTitle = fmt::format("0x{:3x} ({})", msg.Id(), msg.Name());
+static void DisplayMessage(const dbcan::Message &msg) {
+	std::string msgTitle = fmt::format("0x{:3x} ({})", msg.id, msg.name);
 	if (ImGui::TreeNode(msgTitle.c_str())) {
-		ImGui::Text("ID: 0x%lX (%lu)", msg.Id(), msg.Id());
-		ImGui::Text("Transmitter: %s", msg.Transmitter().c_str());
-		ImGui::Text("Signals: %lu", msg.Signals_Size());
-		ImGui::Text("Size: %lu", msg.MessageSize());
-		ImGui::Text("Comment: %s", msg.Comment().c_str());
+		ImGui::Text("ID: 0x%lX (%lu)", msg.id, msg.id);
+		ImGui::Text("Transmitter: %s", msg.transmitter.c_str());
+		ImGui::Text("Signals: %lu", msg.signals.size());
+		ImGui::Text("Size: %hhu", msg.length);
+		// ImGui::Text("Comment: %s", msg.Comment().c_str());
 
 		if (ImGui::Button("Add Signal")) { std::cout << "later dawg" << std::endl; }
 
-		for (const dbcppp::ISignal &sig : msg.Signals()) { DisplaySignal(sig); }
+		for (const dbcan::Signal &sig : msg.signals) { DisplaySignal(sig); }
 		ImGui::TreePop();
 	}
 }
 
-static void DisplayNode(const dbcppp::INode &node) {
-	if (ImGui::TreeNode(node.Name().c_str())) {
-		ImGui::Text("Comment: %s", node.Comment().c_str());
-		ImGui::TreePop();
-	}
-}
+// static void DisplayNode(const dbcppp::INode &node) {
+// 	if (ImGui::TreeNode(node.Name().c_str())) {
+// 		ImGui::Text("Comment: %s", node.Comment().c_str());
+// 		ImGui::TreePop();
+// 	}
+// }
 
 static void DisplayDatabase(DbcDatabase &dbc) {
 	ImGui::Text("Path: %s", dbc.filepath.c_str());
-	ImGui::Text("Node Size: %lu", dbc.getNetwork()->Nodes_Size());
-	ImGui::Text("Messages Size: %lu", dbc.getNetwork()->Messages_Size());
-	ImGui::Text("Version: %s", dbc.getNetwork()->Version().c_str());
+	// ImGui::Text("Node Size: %lu", dbc.getNetwork()->Nodes_Size());
+	ImGui::Text("Messages Size: %lu", dbc.getNetwork()->messages.size());
+	ImGui::Text("Version: %s", std::string(dbc.getNetwork()->version).c_str());
 
 	if (ImGui::Button("Add Message")) {
 		static int idIncr = 1000;
@@ -84,7 +88,7 @@ static void DisplayDatabase(DbcDatabase &dbc) {
 		dbc.hasChanges = true;
 	}
 
-	for (const dbcppp::IMessage &msg : dbc.getNetwork()->Messages()) { DisplayMessage(msg); }
+	for (auto [id, msg] : dbc.getNetwork()->messages) { DisplayMessage(msg); }
 }
 
 void DbcManager::DisplayLoader() {
@@ -99,7 +103,7 @@ void DbcManager::DisplayLoader() {
 			loadOk = addDatabase(filepath);
 		}
 
-		std::cout << "DBC Load" << (loadOk ? "OK" : "FAIL") << std::endl;
+		std::cout << "DBC Load " << (loadOk ? "OK" : "FAIL") << std::endl;
 
 		ImGui::OpenPopup("DBC Load");
 		if (ImGui::BeginPopup("DBC Load")) {
