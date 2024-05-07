@@ -21,7 +21,7 @@ class Signal {
  public:
 	std::string name;
 	// todo: split to enum (none, switch, val) and int
-	std::optional<std::string> multiplexerIndicator;  // Optional multiplexer indicator
+	std::optional<std::string> muxData;  // Optional multiplexer indicator
 	int startBit;
 	int length;
 	ByteOrder byteOrder;  // '0' for Big-endian, '1' for Little-endian
