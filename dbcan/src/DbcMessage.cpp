@@ -42,7 +42,6 @@ std::optional<Message> Message::fromString(std::string_view line) {
 		msg.name = name;
 		msg.length = std::stoi(len.to_string());
 		msg.transmitter = txr;
-		msg.signals = std::vector<Signal>(msg.length);
 		parsedOk = true;
 	}
 #endif
