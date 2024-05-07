@@ -8,6 +8,10 @@
 #include <string>
 #include <string_view>
 
+#ifdef USE_CTRE
+#include "ctre.hpp"
+#endif
+
 namespace dbcan {
 
 enum ByteOrder : uint8_t { BigEndian = 0, LittleEndian = 1 };
@@ -15,8 +19,6 @@ enum ValueType : char { Unsigned, Signed };
 
 class Signal {
  public:
-	inline static int s_sigCounter = 0;
-
 	std::string name;
 	// todo: split to enum (none, switch, val) and int
 	std::optional<std::string> multiplexerIndicator;  // Optional multiplexer indicator
@@ -26,7 +28,7 @@ class Signal {
 	ValueType valueType;  // '+' for unsigned, '-' for signed
 	double scale;
 	double offset;
-	std::pair<int, int> valueRange;  // Signal value range
+	std::pair<double, double> valueRange;  // Signal value range
 	std::optional<std::string> unit;
 	std::string transmitter;
 
@@ -35,15 +37,15 @@ class Signal {
 	// TODO: toDbcString
 	std::string toPrettyString(int indentCount = 0) const;
 
-	static Signal fromString(std::string_view line);
+	static std::optional<Signal> fromString(std::string_view line);
 
  private:
 	static constexpr auto kSigRegex =
-		R"~(\sSG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([+-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+)\|(-?\d+)\]\s*['"]([^'"]*)['"]\s+(\w+))~";
+		R"~(\sSG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([\+\-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+(?:\.?\d+)*)\|(-?\d+(?:\.?\d+)*)\]\s*['"]([^'"]*)['"]\s+(\w+))~";
 
 #ifdef USE_CTRE
 	static constexpr auto kSigRegexCtre = ctll::fixed_string {
-		R"~(\sSG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([+-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+)\|(-?\d+)\]\s*['"]([^'"]*)['"]\s+(\w+))~"
+		R"~(\sSG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([\+\-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+(?:\.?\d+)*)\|(-?\d+(?:\.?\d+)*)\]\s*['"]([^'"]*)['"]\s+(\w+))~"
 	};
 #endif
 	static const std::regex rgx_;

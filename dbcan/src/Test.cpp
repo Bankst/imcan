@@ -1,4 +1,4 @@
-#include <fmt/base.h>
+#include <fmt/format.h>
 
 #include <iostream>
 #include <string>
@@ -20,7 +20,7 @@ int main2() {
 
 int main() {
 	// Create a network from the DBC file
-	std::optional<dbcan::Network> networkOpt = dbcan::Network::createFromDBC("canandcoder.dbc");
+	std::optional<dbcan::Network> networkOpt = dbcan::Network::createFromDBC("vehicle.dbc");
 	if (!networkOpt) {
 		fmt::println(stderr, "DBC load failure!");
 		return 1;
@@ -31,16 +31,17 @@ int main() {
 	fmt::println("Version: {}", network.version.has_value() ? network.version.value() : "N/A");
 
 	// Print attributes
-	int attrCount = network.attributes.size();
+	auto attrCount = network.attributes.size();
 	fmt::println("Attributes ({}){}", attrCount, attrCount != 0 ? ":" : "");
 	for (const auto& [key, value] : network.attributes) { fmt::println("  {}: {}", key, value); }
 
 	// Print unused nodes
 	std::cout << "Unused Nodes:\n";
-	for (const auto& node : network.unusedNodes) { fmt::println("  {}", node); }
+	// for (const auto& node : network.unusedNodes) { fmt::println("  {}", node); }
 
 	// Print messages and their signals
-	std::cout << "Messages:\n";
+	fmt::println("Messages: ({})", (int) network.messages.size());
+	return 0;
 	for (const auto& [id, msg] : network.messages) {
 		fmt::println(
 			"  Message ID: {}, Name: {}, Length: {}, Signals: {}", id, msg.name, msg.length,

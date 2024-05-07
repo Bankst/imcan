@@ -18,14 +18,15 @@ const std::regex Message::rgx_ = std::regex(Message::kMsgRegex);
 std::istream& operator>>(std::istream& is, Message& msg) {
 	std::string line;
 	std::getline(is, line);
-	msg = Message::fromString(line);
+	auto msgOpt = Message::fromString(line);
+	if (msgOpt) { msg = msgOpt.value(); }
 	return is;
 }
 
-Message Message::fromString(std::string_view line) {
+std::optional<Message> Message::fromString(std::string_view line) {
 	Message msg;
 	std::smatch match;
-
+	bool parsedOk = false;
 #ifndef USE_CTRE
 	std::string lstr { line };  // because libstd::regex sucks eggs
 	if (std::regex_match(lstr, match, Message::rgx_)) {
@@ -33,11 +34,21 @@ Message Message::fromString(std::string_view line) {
 		msg.name = match[2];
 		msg.length = static_cast<uint8_t>(std::stoi(match[3]));
 		msg.transmitter = match[4];
+		parsedOk = true;
 	}
 #else  // USE_CTRE
-	ctre::match<kMsgRegexCtre>(line);
+	if (auto [whole, id, name, len, txr] = ctre::match<kMsgRegexCtre>(line); whole) {
+		msg.id = std::stoull(id.to_string());
+		msg.name = name;
+		msg.length = std::stoi(len.to_string());
+		msg.transmitter = txr;
+		msg.signals = std::vector<Signal>(msg.length);
+		parsedOk = true;
+	}
 #endif
-	return msg;
+
+	if (parsedOk) { return msg; }
+	return std::nullopt;
 }
 
 }  // namespace dbcan
