@@ -6,6 +6,7 @@
 #include "DbcSignal.h"
 #include "fmt/core.h"
 #include "glass/Context.h"
+#include "imgui.h"
 
 namespace imcan {
 
@@ -30,8 +31,43 @@ bool DbcManager::addDatabase(std::filesystem::path path) {
 		return false;
 }
 
+static void BuildSignalCtxMenu(const dbcan::Signal &sig) {
+	if (ImGui::BeginPopupContextItem()) {
+		ImGui::Text("%s", sig.name.c_str());
+
+		auto delModStr = fmt::format("Delete Signal {}?", sig.name);
+
+		if (ImGui::Button("Delete")) {
+			ImGui::OpenPopup(delModStr.c_str());
+			ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+			ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		}
+
+		bool modalInteracted = false;
+		if (ImGui::BeginPopupModal(delModStr.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+			auto titleLen = ImGui::CalcTextSize(delModStr.c_str());
+			ImGui::SetCursorPosX(titleLen.x);
+
+			bool yes = ImGui::Button("   Yes   ");
+			ImGui::SameLine();
+			bool no = ImGui::Button("   No   ");
+			if (yes) {
+				// TODO: mark signal for deletion at end of loop, mark network as changed
+				fmt::println("TODO: mark signal for deletion at end of loop");
+			}
+			modalInteracted = yes || no;
+			if (modalInteracted) { ImGui::CloseCurrentPopup(); }
+			ImGui::EndPopup();
+		}
+		if (modalInteracted) { ImGui::CloseCurrentPopup(); }
+		ImGui::EndPopup();
+	}
+}
+
 static void DisplaySignal(const dbcan::Signal &sig) {
-	if (ImGui::TreeNode(sig.name.c_str())) {
+	bool open = ImGui::TreeNode(sig.name.c_str());
+	BuildSignalCtxMenu(sig);
+	if (open) {
 		ImGui::Text(
 			"ByteOrder: %s",
 			(sig.byteOrder == dbcan::ByteOrder::BigEndian) ? "BigEndian" : "LittleEndian");
