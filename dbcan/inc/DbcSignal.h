@@ -2,7 +2,7 @@
 
 #include <fmt/format.h>
 
-#include <optional>
+#include <memory>
 #include <string>
 
 #include "ctre.hpp"
@@ -13,25 +13,35 @@ enum ByteOrder : uint8_t { BigEndian = 0, LittleEndian = 1 };
 enum ValueType : char { Unsigned, Signed };
 
 class Signal {
+	// TODO: split `muxData` to enum (none, switch, val) and int
+
  public:
-	std::string name = "";
-	// todo: split to enum (none, switch, val) and int
-	std::optional<std::string> muxData = std::nullopt;  // Optional multiplexer indicator
-	int startBit = 0;
-	int length = 0;
-	ByteOrder byteOrder = BigEndian;  // '0' for Big-endian, '1' for Little-endian
-	ValueType valueType = Unsigned;   // '+' for unsigned, '-' for signed
-	double scale = 1;
-	double offset = 0;
-	std::pair<double, double> valueRange { 0, 1 };  // Signal value range
-	std::string unit = "";
-	std::string transmitter = "";
-	std::string comment = "";
+	using Ptr = std::shared_ptr<Signal>;
+
+	/*
+	 * 1-indexed.
+	 * This is NOT part of the DBC.
+	 * Only used for identifying signals in a message for deletion.
+	 */
+	uint64_t msgIndex = 0;
+
+	std::string name = "";            // Required
+	std::string muxData;              // Optional. multiplexer indicator.
+	int startBit = 0;                 // Required
+	int length = 0;                   // Required
+	ByteOrder byteOrder = BigEndian;  // Required. `0` for Big-endian, `1` for Little-endian
+	ValueType valueType = Unsigned;   // Required. `+` for unsigned, `-` for signed
+	double scale = 1;                 // Required
+	double offset = 0;                // Required
+	std::pair<double, double> valueRange { 0, 1 };  // Required
+	std::string unit = "";                          // Optional
+	std::string transmitter = "";                   // Required
+	std::string comment = "";                       // Optional
 
 	// TODO: toDbcString
 	[[nodiscard]] std::string toPrettyString(int indentCount = 0) const;
 
-	static std::optional<Signal> fromString(std::string line);
+	static Signal::Ptr fromString(std::string line);
 
  private:
 	static constexpr auto kSigRegexCtre = ctll::fixed_string {

@@ -1,5 +1,6 @@
 #include "Dbc.h"
 
+#include <cstdint>
 #include <iostream>
 
 #include "DbcNetwork.h"
@@ -25,22 +26,26 @@ bool DbcManager::addDatabase(std::filesystem::path path) {
 
 		// TODO: ret optional, err handling, unique_ptr?
 		auto net = dbcan::Network::createFromDBC(path);
-		if (net) { m_sDatabases.emplace_back(path, net); }
+		if (net) {
+			m_sDatabases.emplace_back(path, net);
+		} else {
+			fmt::println("Err: failed to parse DBC!");
+		}
 		return net != nullptr;
 	} else
 		return false;
 }
 
-void DbcSignalView::DisplayCtxMenu() const {
+void DbcSignalView::DisplayCtxMenu() {
 	if (ImGui::BeginPopupContextItem()) {
 		static const auto delModalStr = "Delete Signal?";
-		ImGui::Text("%s", m_sig.name.c_str());
+		ImGui::Text("%s", m_sig->name.c_str());
 
 		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr); }
 
 		bool modalInteracted = false;
 		if (ImGui::BeginPopupModal(delModalStr, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-			const auto delStr = fmt::format("Delete Signal \"{}\"?", m_sig.name);
+			const auto delStr = fmt::format("Delete Signal \"{}\"?", m_sig->name);
 			ImGui::Text("%s", delStr.c_str());
 
 			static const auto yesStr = "   Yes   ";
@@ -57,7 +62,10 @@ void DbcSignalView::DisplayCtxMenu() const {
 			ImGui::SameLine(0, availSpace);
 			bool no = ImGui::Button(noStr);
 
-			if (yes) { m_msg.DeleteSignal(m_sig.name); }
+			if (yes) {
+				// TODO: brokey
+				m_msg->DeleteSignal(m_sig->msgIndex);
+			}
 
 			modalInteracted = yes || no;
 			if (modalInteracted) { ImGui::CloseCurrentPopup(); }
@@ -68,52 +76,61 @@ void DbcSignalView::DisplayCtxMenu() const {
 	}
 }
 
-void DbcSignalView::Display() const {
-	bool open = ImGui::TreeNode(m_sig.name.c_str());
+void DbcSignalView::Display() {
+	bool open = ImGui::TreeNode(m_sig->name.c_str());
 	DisplayCtxMenu();
 	if (open) {
 		ImGui::Text(
 			"ByteOrder: %s",
-			(m_sig.byteOrder == dbcan::ByteOrder::BigEndian) ? "BigEndian" : "LittleEndian");
-		auto mux = m_sig.muxData ? m_sig.muxData->c_str() : "N/A";
+			(m_sig->byteOrder == dbcan::ByteOrder::BigEndian) ? "BigEndian" : "LittleEndian");
+		auto mux = m_sig->muxData != "" ? m_sig->muxData.c_str() : "N/A";
 		ImGui::Text("MuxData: %s", mux);
-		ImGui::Text("StartBit: %d", m_sig.startBit);
-		ImGui::Text("Length (bits): %d", m_sig.length);
-		ImGui::Text("Scale: %f", m_sig.scale);
-		ImGui::Text("Offset: %f", m_sig.offset);
-		ImGui::Text("Range: [%f, %f]", m_sig.valueRange.first, m_sig.valueRange.second);
-		auto unit = m_sig.unit == "" ? m_sig.unit.c_str() : "None";
+		ImGui::Text("StartBit: %d", m_sig->startBit);
+		ImGui::Text("Length (bits): %d", m_sig->length);
+		ImGui::Text("Scale: %f", m_sig->scale);
+		ImGui::Text("Offset: %f", m_sig->offset);
+		ImGui::Text("Range: [%f, %f]", m_sig->valueRange.first, m_sig->valueRange.second);
+		auto unit = m_sig->unit == "" ? m_sig->unit.c_str() : "None";
 		ImGui::Text("Unit: %s", unit);
-		ImGui::Text("Comment: %s", m_sig.comment.c_str());
+		ImGui::Text("Comment: %s", m_sig->comment.c_str());
 
 		ImGui::TreePop();
 	}
 }
 
-void DbcSignalView::DisplayEditor() const {}
+void DbcSignalView::DisplayEditor() {}
 
-void DbcMessageView::Display() const {
-	std::string msgTitle = fmt::format("0x{:3x} ({})", m_msg.id, m_msg.name);
+void DbcMessageView::Display() {
+	std::string msgTitle = fmt::format("0x{:3x} ({})", m_msg->id, m_msg->name);
 	if (ImGui::TreeNode(msgTitle.c_str())) {
-		ImGui::Text("ID: 0x%lX (%lu)", m_msg.id, m_msg.id);
-		ImGui::Text("Transmitter: %s", m_msg.transmitter.c_str());
-		ImGui::Text("Signals: %lu", m_msg.signals.size());
-		ImGui::Text("Size: %hhu", m_msg.length);
-		// ImGui::Text("Comment: %s", msg.Comment().c_str());
+		ImGui::Text("ID: 0x%lX (%lu)", m_msg->id, m_msg->id);
+		ImGui::Text("Transmitter: %s", m_msg->transmitter.c_str());
+		ImGui::Text("Signals: %lu", m_msg->signals.size());
+		ImGui::Text("Size: %hhu", m_msg->length);
+		ImGui::Text("Comment: %s", m_msg->comment.c_str());
 
 		if (ImGui::Button("Add Signal")) { std::cout << "later dawg" << std::endl; }
 
-		for (const dbcan::Signal &sig : m_msg.signals) {
-			auto sigView = DbcSignalView { *this, sig };
+		for (auto &[_, sig] : m_msg->signals) {
+			auto sigView = DbcSignalView { this, sig };
 			sigView.Display();
 		}
 		ImGui::TreePop();
+
+		// handle deletion after iteration
+		if (m_sigToDelete != 0) {
+			bool ok = m_msg->deleteSignal(m_sigToDelete);
+			if (!ok) {
+				fmt::println("Err: failed to delete signal {} from message {}", m_sigToDelete, m_msg->name);
+			} else {
+				m_net->MadeChanges();
+			}
+			m_sigToDelete = 0;
+		}
 	}
 }
 
-void DbcMessageView::DeleteSignal(std::string name) const {
-	// m_msg.
-}
+void DbcMessageView::DeleteSignal(uint64_t sigId) { m_sigToDelete = sigId; }
 
 void DbcNetworkView::Display() {
 	ImGui::Text("Messages Size: %lu", m_net->messages.size());
@@ -124,8 +141,8 @@ void DbcNetworkView::Display() {
 	// dbc.hasChanges = true;
 	// }
 
-	for (const auto [id, msg] : m_net->messages) {
-		auto msgView = DbcMessageView { *this, msg };
+	for (auto [id, msg] : m_net->messages) {
+		auto msgView = DbcMessageView { this, msg };
 		msgView.Display();
 	}
 }

@@ -5,7 +5,9 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 
+#include "DbcMessage.h"
 #include "DbcNetwork.h"
 #include "glass/WindowManager.h"
 
@@ -16,6 +18,7 @@ class DbcNetworkView {
 	DbcNetworkView(const std::shared_ptr<dbcan::Network> net_) : m_net(net_) {}
 
 	void Display();
+	void MadeChanges() { m_net->hasChanges = true; }
 
  private:
 	const std::shared_ptr<dbcan::Network> m_net;
@@ -23,30 +26,32 @@ class DbcNetworkView {
 
 class DbcMessageView {
  public:
-	DbcMessageView(const DbcNetworkView &parentNet_, const dbcan::Message &msg_)
-			: m_net(parentNet_), m_msg(msg_) {}
+	DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_)
+			: m_net(parentNet_), m_msg(std::move(msg_)) {}
 
-	void Display() const;
-	void DeleteSignal(std::string name) const;
+	void Display();
+	void DeleteSignal(uint64_t sigId);
 
  private:
-	const DbcNetworkView &m_net;
-	const dbcan::Message &m_msg;
+	DbcNetworkView *m_net;
+	dbcan::Message::Ptr m_msg;
+
+	uint64_t m_sigToDelete = 0;  // signals are 1-indexed, so 0 means none
 };
 
 class DbcSignalView {
  public:
-	DbcSignalView(const DbcMessageView &parentMsg_, const dbcan::Signal &sig_)
-			: m_msg(parentMsg_), m_sig(sig_) {}
+	DbcSignalView(DbcMessageView *parentMsg_, dbcan::Signal::Ptr sig_)
+			: m_msg(parentMsg_), m_sig(std::move(sig_)) {}
 
-	void Display() const;
+	void Display();
 
  private:
-	const DbcMessageView &m_msg;
-	const dbcan::Signal &m_sig;
+	DbcMessageView *m_msg;
+	dbcan::Signal::Ptr m_sig;
 
-	void DisplayCtxMenu() const;
-	void DisplayEditor() const;
+	void DisplayCtxMenu();
+	void DisplayEditor();
 };
 
 class DbcDatabase {

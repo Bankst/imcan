@@ -30,9 +30,11 @@ int main() {
 	return 0;
 	for (const auto& [id, msg] : network->messages) {
 		fmt::println(
-			"  Message ID: {}, Name: {}, Length: {}, Signals: {}", id, msg.name, msg.length,
-			msg.signals.size());
-		for (const auto& signal : msg.signals) { std::cout << signal.toPrettyString(2) << std::endl; }
+			"  Message ID: {}, Name: {}, Length: {}, Signals: {}", id, msg->name, msg->length,
+			msg->signals.size());
+		for (const auto& [_, signal] : msg->signals) {
+			std::cout << signal->toPrettyString(2) << std::endl;
+		}
 	}
 
 	return 0;
