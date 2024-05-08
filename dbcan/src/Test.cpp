@@ -5,19 +5,6 @@
 
 #include "DbcNetwork.h"
 
-int main2() {
-	std::istringstream signalData(
-		"SG_ INS_Vel_Sideways_2D M : 40|24@1- (0.0001,0) [-838|838] \"m/s\" Vector__XXX\n"
-		"SG_ SensorSelect m0 : 0|8@1+ (1,0) [0|100] '' InstrumentCluster\n"
-		"SG_ SensorTime : 8|16@1+ (1,0) [0|65535] '' InstrumentCluster\n"
-		"SG_ Sensor1Value : 24|16@1+ (1,0) [0|65535] 'g' InstrumentCluster");
-
-	dbcan::Signal sig;
-	while (signalData >> sig) { std::cout << sig.toPrettyString() << std::endl; }
-
-	return 0;
-}
-
 int main() {
 	// Create a network from the DBC file
 	auto network = dbcan::Network::createFromDBC("vehicle.dbc");

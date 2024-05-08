@@ -20,10 +20,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 	fmt
 )
 
-target_compile_definitions(${PROJECT_NAME} PUBLIC
-	USE_CTRE
-)
-
 add_executable(${PROJECT_NAME}_test)
 target_sources(${PROJECT_NAME}_test PUBLIC
 	src/Test.cpp
