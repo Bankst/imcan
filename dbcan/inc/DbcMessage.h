@@ -8,15 +8,13 @@
 #include "ctre.hpp"
 
 namespace dbcan {
-
 class Message {
  public:
-	uint64_t id;
-	std::string name;
-	uint8_t length;
-	std::string transmitter;
-
-	std::vector<Signal> signals;
+	uint64_t id = 0;
+	std::string name = "";
+	uint8_t length = 0;
+	std::string transmitter = "";
+	std::string comment = "";
 
 	// TODO: toDbcString
 	static std::optional<Message> fromString(std::string line);

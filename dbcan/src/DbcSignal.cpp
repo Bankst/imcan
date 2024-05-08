@@ -22,7 +22,7 @@ std::optional<Signal> Signal::fromString(std::string line) {
 		sig.scale = std::stod(scale.to_string());
 		sig.offset = std::stod(offs.to_string());
 		sig.valueRange = std::make_pair(std::stod(valmin.to_string()), std::stod(valmax.to_string()));
-		sig.unit = unit.to_optional_string();
+		sig.unit = unit;
 		sig.transmitter = txr;
 		parsedOk = true;
 	}
@@ -33,7 +33,7 @@ std::optional<Signal> Signal::fromString(std::string line) {
 
 std::string Signal::toPrettyString(int indentCount) const {
 	std::string mux = muxData.has_value() ? muxData.value() : "N/A";
-	std::string unitStr = unit.has_value() ? unit.value() : "N/A";
+	std::string unitStr = !unit.empty() ? unit : "N/A";
 	std::string byteOrderStr = byteOrder == BigEndian ? "BigEndian" : "LittleEndian";
 	std::string valueTypeStr = valueType == Unsigned ? "Unsigned" : "Signed";
 

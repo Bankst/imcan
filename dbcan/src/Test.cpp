@@ -14,7 +14,7 @@ int main() {
 	}
 
 	// Print all parsed data
-	fmt::println("Version: {}", network->version);
+	fmt::println("Version: {}", network->version != "" ? network->version : "No Version!");
 
 	// Print attributes
 	auto attrCount = network->attributes.size();
