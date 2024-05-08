@@ -1,7 +1,6 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <sstream>
 
 #include "Utils.hpp"
@@ -61,15 +60,14 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 				while (nodesStream >> node) { net->unusedNodes.push_back(node); }
 			}
 		} else if (isMsg) {
-			if (auto msg = Message::fromString(line); msg) {
-				net->messages[++msg_counter] = std::move(msg.value());
+			if (auto msgPtr = Message::fromString(line); msgPtr) {
+				net->messages[++msg_counter] = std::move(msgPtr);
 			} else {
 				fmt::println("Err: failed parse msg: {}", line);
 			}
 		} else if (isSig && msg_counter != -1) {
-			if (auto sig = Signal::fromString(line); sig) {
-				net->messages[msg_counter].signals.push_back(sig.value());
-				sig_counter++;
+			if (auto sigPtr = Signal::fromString(line); sigPtr) {
+				net->messages[msg_counter]->addSignal(sigPtr);
 			} else {
 				fmt::println("Err: failed parse sig: {}", line);
 			}
