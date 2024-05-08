@@ -3,15 +3,12 @@
 #include <iostream>
 #include <optional>
 #include <sstream>
-#include <string_view>
+
+#include "Utils.hpp"
 
 using namespace std::chrono;
 
-#ifndef USE_CTRE
-#include <regex>
-#else
 #include <ctre.hpp>
-#endif
 
 #include "DbcMessage.h"
 #include "DbcNetwork.h"
@@ -34,45 +31,32 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 	int64_t msg_counter = -1;
 	auto parse_begin = steady_clock::now();
 	uint32_t sig_counter = 0;
+	int infoCounter = 0;
 	while (std::getline(file, line)) {
-		std::string_view lineView { line };
-
 		// fmt::println("scanning - {}", line);
-		bool isVersion = ctre::starts_with<"VERSION">(lineView);
-		bool isNodes = ctre::starts_with<"BU_">(lineView);
-		bool isMsg = ctre::starts_with<"BO_">(lineView);
-		bool isSig = ctre::starts_with<" +SG_">(lineView);
-		bool isAttr = ctre::starts_with<"BA_">(lineView);
-#ifndef USE_CTRE
-		std::smatch match;
-		line = lineView;
-#endif
-
-		if (lineView.empty() || lineView[0] == '#') {
+		bool isVersion = ctre::starts_with<"VERSION">(line);
+		bool isInfoBlock = ctre::starts_with<"NS_">(line);
+		bool isNodes = ctre::starts_with<"BU_">(line);
+		bool isMsg = ctre::starts_with<"BO_">(line);
+		bool isSig = ctre::starts_with<" +SG_">(line);
+		bool isAttr = ctre::starts_with<"BA_">(line);
+		if (line.empty() || line[0] == '#') {
 			continue;
 		} else if (isVersion) {
-#ifndef USE_CTRE
-			std::regex versionRegex(kVersionRegex);
-			auto regok = std::regex_search(line, match, versionRegex) && match.size() > 1;
-			net.version = regok ? std::make_optional(match[1].str()) : std::nullopt;
-#else
-			if (auto [whole, version] = ctre::match<kVersionRegexCtre>(lineView); whole) {
+			if (auto [whole, version] = ctre::match<kVersionRegexCtre>(line); whole) {
 				net->version = version;
 			}
-#endif
+		} else if (isInfoBlock) {
+			// grab each line until newline
+			while (std::getline(file, line) && !line.empty()) {
+				auto data = utils::ltrim(line);
+				net->infoBlock.emplace_back(data);
+				infoCounter++;
+			}
 		} else if (isNodes) {
 			std::istringstream nodesStream = {};
-#ifndef USE_CTRE
-			std::regex versionRegex(kNodesRegex);
-			if (std::regex_search(line, match, versionRegex) && match.size() > 1) {
-				nodesStream = std::istringstream { match[1].str() };
-			}
-#else
-			if (auto [whole, nodes] = ctre::match<kNodesRegexCtre>(lineView); whole) {
+			if (auto [whole, nodes] = ctre::match<kNodesRegexCtre>(line); whole) {
 				nodesStream = std::istringstream { nodes.str() };
-			}
-#endif
-			if (!nodesStream.str().empty()) {
 				std::string node;
 				while (nodesStream >> node) { net->unusedNodes.push_back(node); }
 			}
@@ -91,14 +75,7 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 			}
 			// TODO: maybe sort signals by start bit ascending?
 		} else if (isAttr) {
-#ifndef USE_CTRE
-// std::regex attrRegex(kAttrsRegex);
-// if (std::regex_search(line, match, attrRegex) && match.size() == 5) {
-// 	net.attributes[match[1].str() + match[3].str()] = match[4].str();
-// }
-#else
 			// lol attributes are complex i dont wanna
-#endif
 		}
 	}
 

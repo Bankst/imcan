@@ -2,15 +2,10 @@
 
 #include <fmt/format.h>
 
-#include <iostream>
 #include <optional>
-#include <regex>
 #include <string>
-#include <string_view>
 
-#ifdef USE_CTRE
 #include "ctre.hpp"
-#endif
 
 namespace dbcan {
 
@@ -32,23 +27,15 @@ class Signal {
 	std::optional<std::string> unit;
 	std::string transmitter;
 
-	friend std::istream& operator>>(std::istream& is, Signal& sig);
-
 	// TODO: toDbcString
 	std::string toPrettyString(int indentCount = 0) const;
 
-	static std::optional<Signal> fromString(std::string_view line);
+	static std::optional<Signal> fromString(std::string line);
 
  private:
-	static constexpr auto kSigRegex =
-		R"~( +SG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([\+\-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+(?:\.?\d+)*)\|(-?\d+(?:\.?\d+)*)\]\s*['"]([^'"]*)['"]\s+(\w+))~";
-
-#ifdef USE_CTRE
 	static constexpr auto kSigRegexCtre = ctll::fixed_string {
 		R"~( +SG_\s(\w+)\s*(M|m\d+)?\s*:\s*(\d+)\|(\d+)@([01])([\+\-])\s*\(([^,]+),([^)]+)\)\s*\[(-?\d+(?:\.?\d+)*)\|(-?\d+(?:\.?\d+)*)\]\s*['"]([^'"]*)['"]\s+(\w+))~"
 	};
-#endif
-	static const std::regex rgx_;
 };
 
 }  // namespace dbcan
