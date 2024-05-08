@@ -14,21 +14,22 @@ enum ValueType : char { Unsigned, Signed };
 
 class Signal {
  public:
-	std::string name;
+	std::string name = "";
 	// todo: split to enum (none, switch, val) and int
-	std::optional<std::string> muxData;  // Optional multiplexer indicator
-	int startBit;
-	int length;
-	ByteOrder byteOrder;  // '0' for Big-endian, '1' for Little-endian
-	ValueType valueType;  // '+' for unsigned, '-' for signed
-	double scale;
-	double offset;
-	std::pair<double, double> valueRange;  // Signal value range
-	std::optional<std::string> unit;
-	std::string transmitter;
+	std::optional<std::string> muxData = std::nullopt;  // Optional multiplexer indicator
+	int startBit = 0;
+	int length = 0;
+	ByteOrder byteOrder = BigEndian;  // '0' for Big-endian, '1' for Little-endian
+	ValueType valueType = Unsigned;   // '+' for unsigned, '-' for signed
+	double scale = 1;
+	double offset = 0;
+	std::pair<double, double> valueRange { 0, 1 };  // Signal value range
+	std::string unit = "";
+	std::string transmitter = "";
+	std::string comment = "";
 
 	// TODO: toDbcString
-	std::string toPrettyString(int indentCount = 0) const;
+	[[nodiscard]] std::string toPrettyString(int indentCount = 0) const;
 
 	static std::optional<Signal> fromString(std::string line);
 
