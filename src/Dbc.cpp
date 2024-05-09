@@ -152,6 +152,7 @@ void PrototypeEditableField(std::string label, std::string *backingData) {
 
 void DbcMessageView::DisplayEditor() {
 	bool editorOpen = ImGui::BeginPopup(m_editTitle.c_str());
+	if (!editorOpen && IsEditing()) { EndEdit(false); }
 	if (editorOpen) {
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
 
@@ -169,7 +170,7 @@ void DbcMessageView::DisplayEditor() {
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(ImGui::CalcTextSize("ExampleTransmitterNameHere______").x);
 		edited = ImGui::InputTextWithHint("##TxrField", "Transmitting Node", &msg->transmitter);
-if (edited) {
+		if (edited) {
 			// do nothin ig
 		}
 
@@ -178,17 +179,23 @@ if (edited) {
 		std::string lenBuf = fmt::format("{}", msg->length);
 		ImGui::SetNextItemWidth(ImGui::CalcTextSize("999").x);
 		edited = ImGui::InputTextWithHint(
-			"##IdField", "Hexadecimal or Integer value", &lenBuf, ImGuiInputTextFlags_CharsDecimal);
+			"##LengthField", "Hexadecimal or Integer value", &lenBuf, ImGuiInputTextFlags_CharsDecimal);
 		if (edited) { msg->length = std::stoi(lenBuf); }
 
-		// TODO: live-apply without full edit exit?
-		if (ImGui::Button("Save")) {
-			EndEdit();
+		if (ImGui::Button("OK")) {
+			EndEdit(edited);
 			ImGui::CloseCurrentPopup();
 		}
 
+		ImGui::BeginDisabled(edited);
+		if (ImGui::Button("Apply")) { EndEdit(true, false); }
+		ImGui::EndDisabled();
+
 		// TODO: prompt on unsaved changes
-		if (ImGui::Button("Close")) { ImGui::CloseCurrentPopup(); }
+		if (ImGui::Button("Close")) {
+			EndEdit(false);
+			ImGui::CloseCurrentPopup();
+		}
 
 		ImGui::EndPopup();
 	}

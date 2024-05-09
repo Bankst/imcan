@@ -57,24 +57,34 @@ class DbcMessageView {
 
 	bool IsEditing() { return m_editingMsg != nullptr; }
 
+	void UpdateEditingMsg() {
+		m_editingMsg.reset();
+		m_editingMsg = std::make_shared<dbcan::Message>(*m_msg.get());
+		sm_editingMsgs.insert_or_assign(m_msg->id, m_editingMsg);
+	}
+
 	bool BeginEdit() {
 		if (IsEditing()) return true;
 
 		if (!sm_editingMsgs.contains(m_msg->id)) {
 			// insert copy of message for editor to mutate
-			m_editingMsg = std::make_shared<dbcan::Message>(*m_msg.get());
-			sm_editingMsgs.insert({ m_msg->id, m_editingMsg });
+			UpdateEditingMsg();
 			return true;
 		}
 		return false;
 	}
 
-	void EndEdit() {
+	void EndEdit(bool save, bool end = true) {
 		if (m_editingMsg && sm_editingMsgs.contains(m_msg->id)) {
-			sm_editingMsgs.erase(m_editingMsg->id);
-			// save to orig msg
-			m_msg.swap(m_editingMsg);
-			m_editingMsg.reset();
+			if (end) { sm_editingMsgs.erase(m_editingMsg->id); }
+
+			// save to orig msg, copy back if not ending
+			if (save) {
+				std::swap(*m_editingMsg, *m_msg);
+				if (!end) { UpdateEditingMsg(); }
+			}
+
+			if (end) { m_editingMsg.reset(); }
 		} else {
 			throw new std::runtime_error("Shitballs 1.0");
 		}
