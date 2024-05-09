@@ -1,17 +1,52 @@
 #include "Dbc.h"
 
+#include <sys/types.h>
+
 #include <cstdint>
 #include <iostream>
+#include <optional>
 
 #include "DbcNetwork.h"
 #include "DbcSignal.h"
 #include "fmt/core.h"
 #include "glass/Context.h"
 #include "imgui.h"
+#include "imgui_stdlib.h"
 
 namespace imcan {
 
 std::unique_ptr<DbcManager> DbcGui::sDbcManager;
+
+// general-purpose yes-no modal
+void YesNoModal(std::string title, std::string text, std::function<void(const bool)> onPress) {
+	bool modalInteracted = false;
+	if (ImGui::BeginPopupModal(title.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::Text("%s", text.c_str());
+
+		static const auto yesStr = "   Yes   ";
+		static const auto noStr = "    No   ";
+
+		// all this just to right-align a button...
+		ImGuiStyle &style = ImGui::GetStyle();
+		float availSpace = ImGui::GetContentRegionAvail().x;
+		availSpace -= ImGui::CalcTextSize(yesStr).x;
+		availSpace -= (style.ItemSpacing.x * 2);
+		availSpace -= ImGui::CalcTextSize(noStr).x;
+
+		bool yes = ImGui::Button(yesStr);
+		ImGui::SameLine(0, availSpace);
+		bool no = ImGui::Button(noStr);
+
+		modalInteracted = yes || no;
+		if (modalInteracted) {
+			ImGui::CloseCurrentPopup();
+			onPress(yes && !no);
+		}
+		ImGui::EndPopup();
+	}
+	if (modalInteracted) { ImGui::CloseCurrentPopup(); }
+	ImGui::EndPopup();
+}
 
 bool DbcManager::addDatabase(std::filesystem::path path) {
 	if (std::filesystem::exists(path)) {
@@ -38,48 +73,22 @@ bool DbcManager::addDatabase(std::filesystem::path path) {
 
 void DbcSignalView::DisplayCtxMenu() {
 	if (ImGui::BeginPopupContextItem()) {
-		static const auto delModalStr = "Delete Signal?";
+		static const std::string delModalStr = "Delete Signal?";
 		ImGui::Text("%s", m_sig->name.c_str());
 
-		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr); }
+		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr.c_str()); }
 
-		bool modalInteracted = false;
-		if (ImGui::BeginPopupModal(delModalStr, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-			const auto delStr = fmt::format("Delete Signal \"{}\"?", m_sig->name);
-			ImGui::Text("%s", delStr.c_str());
-
-			static const auto yesStr = "   Yes   ";
-			static const auto noStr = "    No   ";
-
-			// all this just to right-align a button...
-			ImGuiStyle &style = ImGui::GetStyle();
-			float availSpace = ImGui::GetContentRegionAvail().x;
-			availSpace -= ImGui::CalcTextSize(yesStr).x;
-			availSpace -= (style.ItemSpacing.x * 2);
-			availSpace -= ImGui::CalcTextSize(noStr).x;
-
-			bool yes = ImGui::Button(yesStr);
-			ImGui::SameLine(0, availSpace);
-			bool no = ImGui::Button(noStr);
-
-			if (yes) {
-				// TODO: brokey
-				m_msg->DeleteSignal(m_sig->msgIndex);
-			}
-
-			modalInteracted = yes || no;
-			if (modalInteracted) { ImGui::CloseCurrentPopup(); }
-			ImGui::EndPopup();
-		}
-		if (modalInteracted) { ImGui::CloseCurrentPopup(); }
-		ImGui::EndPopup();
+		YesNoModal(
+			delModalStr, fmt::format("Delete Signal \"{}\"", m_sig->name), [this](const bool yes) {
+				if (yes) { m_msg->DeleteSignal(m_sig->msgIndex); }
+			});
 	}
 }
 
 void DbcSignalView::Display() {
-	bool open = ImGui::TreeNode(m_sig->name.c_str());
+	bool nodeOpen = ImGui::TreeNode(m_sig->name.c_str());
 	DisplayCtxMenu();
-	if (open) {
+	if (nodeOpen) {
 		ImGui::Text(
 			"ByteOrder: %s",
 			(m_sig->byteOrder == dbcan::ByteOrder::BigEndian) ? "BigEndian" : "LittleEndian");
@@ -100,9 +109,34 @@ void DbcSignalView::Display() {
 
 void DbcSignalView::DisplayEditor() {}
 
+void DbcMessageView::DisplayCtxMenu() {
+	if (ImGui::BeginPopupContextItem()) {
+		static const std::string delModalStr = "Delete Message?";
+		ImGui::Text("%s", m_msg->name.c_str());
+
+		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr.c_str()); }
+
+		YesNoModal(
+			delModalStr, fmt::format("Delete Message \"{}\"", m_msg->name), [this](const bool yes) {
+				if (yes) { m_net->DeleteMessage(m_msg->id); }
+			});
+	}
+}
+
+void PrototypeEditableField(std::string label, std::string *backingData) {
+	ImGui::Text("TransmitterEdit: ");
+	ImGui::SameLine();
+	ImGui::InputText(
+		"##TransmitterEdit", backingData,
+		ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll |
+			ImGuiInputTextFlags_EnterReturnsTrue);
+}
+
 void DbcMessageView::Display() {
 	std::string msgTitle = fmt::format("0x{:3x} ({})", m_msg->id, m_msg->name);
-	if (ImGui::TreeNode(msgTitle.c_str())) {
+	bool nodeOpen = ImGui::TreeNode(msgTitle.c_str());
+	DisplayCtxMenu();
+	if (nodeOpen) {
 		ImGui::Text("ID: 0x%lX (%lu)", m_msg->id, m_msg->id);
 		ImGui::Text("Transmitter: %s", m_msg->transmitter.c_str());
 		ImGui::Text("Signals: %lu", m_msg->signals.size());
@@ -144,6 +178,18 @@ void DbcNetworkView::Display() {
 	for (auto [id, msg] : m_net->messages) {
 		auto msgView = DbcMessageView { this, msg };
 		msgView.Display();
+	}
+
+	// handle changes
+	if (m_msgToDelete.has_value()) {
+		auto id = m_msgToDelete.value();
+		auto netMsgErased = m_net->deleteMessage(id);
+		if (netMsgErased == 1) {
+			MadeChanges();
+		} else {
+			fmt::println("Err: failed to erase message {}", id);
+		}
+		m_msgToDelete = std::nullopt;
 	}
 }
 
@@ -208,6 +254,8 @@ void DbcManager::DisplayLoader() {
 		ImGui::EndTabBar();
 	}
 }
+
+void DbcNetworkView::DeleteMessage(uint64_t id) { m_msgToDelete = id; }
 
 void DbcGui::GlobalInit() {
 	auto &storageRoot = glass::GetStorageRoot("dbc");

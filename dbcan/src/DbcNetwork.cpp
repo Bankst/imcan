@@ -27,7 +27,7 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 	// TODO: fail if insufficient tokens found
 
 	std::string line;
-	int64_t msg_counter = -1;
+	std::optional<uint64_t> curMsgId = std::nullopt;
 	auto parse_begin = steady_clock::now();
 	uint32_t sig_counter = 0;
 	int infoCounter = 0;
@@ -61,13 +61,14 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 			}
 		} else if (isMsg) {
 			if (auto msgPtr = Message::fromString(line); msgPtr) {
-				net->messages[++msg_counter] = std::move(msgPtr);
+				curMsgId = msgPtr->id;
+				net->messages.insert({ curMsgId.value(), std::move(msgPtr) });
 			} else {
 				fmt::println("Err: failed parse msg: {}", line);
 			}
-		} else if (isSig && msg_counter != -1) {
+		} else if (isSig && curMsgId.has_value()) {  // TODO: better?
 			if (auto sigPtr = Signal::fromString(line); sigPtr) {
-				net->messages[msg_counter]->addSignal(sigPtr);
+				net->messages.at(curMsgId.value())->addSignal(sigPtr);
 			} else {
 				fmt::println("Err: failed parse sig: {}", line);
 			}
@@ -85,4 +86,7 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 
 	return net;
 }
+
+bool Network::deleteMessage(uint64_t msgId) { return messages.erase(msgId) == 1; }
+
 }  // namespace dbcan

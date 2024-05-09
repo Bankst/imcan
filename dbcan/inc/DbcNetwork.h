@@ -23,6 +23,8 @@ class Network {
 	// TODO: some way to track diff of changes?
 	bool hasChanges = false;
 
+	bool deleteMessage(uint64_t msgId);
+
 	static std::shared_ptr<Network> createFromDBC(const std::string& filename);
 	// TODO: toDbcString
 
