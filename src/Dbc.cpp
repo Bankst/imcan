@@ -151,25 +151,32 @@ void PrototypeEditableField(std::string label, std::string *backingData) {
 }
 
 void DbcMessageView::DisplayEditor() {
-	if (ImGui::BeginPopup(m_editTitle.c_str())) {
+	bool editorOpen = ImGui::BeginPopup(m_editTitle.c_str());
+	if (editorOpen) {
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
 
 		auto msg = sm_editingMsgs.at(m_msg->id);
 		// TODO: make a generic editable field doodad?
-		ImGui::Text("ID: ");
+		ImGui::Text("ID:");
 		ImGui::SameLine();
-		std::string idBuf = fmt::format("{:3x}", msg->id);
+		std::string idBuf = fmt::format("0x{:3x}", msg->id);
+		ImGui::SetNextItemWidth(ImGui::CalcTextSize("0x123456789").x);
 		bool edited = ImGui::InputTextWithHint(
-			"##IdField", "Hexadecimal or Integer value", &idBuf, ImGuiInputTextFlags_CharsHexadecimal);
+			"##IdField", "Hexadecimal value", &idBuf, ImGuiInputTextFlags_CharsHexadecimal);
 		if (edited) { msg->id = std::stoull(idBuf); }
 
-		ImGui ::Text("Transmitter: ");
+		ImGui::Text("Transmitter:");
 		ImGui::SameLine();
+		ImGui::SetNextItemWidth(ImGui::CalcTextSize("ExampleTransmitterNameHere______").x);
 		edited = ImGui::InputTextWithHint("##TxrField", "Transmitting Node", &msg->transmitter);
+if (edited) {
+			// do nothin ig
+		}
 
-		ImGui::Text("ID: ");
+		ImGui::Text("Length:");
 		ImGui::SameLine();
 		std::string lenBuf = fmt::format("{}", msg->length);
+		ImGui::SetNextItemWidth(ImGui::CalcTextSize("999").x);
 		edited = ImGui::InputTextWithHint(
 			"##IdField", "Hexadecimal or Integer value", &lenBuf, ImGuiInputTextFlags_CharsDecimal);
 		if (edited) { msg->length = std::stoi(lenBuf); }
@@ -188,6 +195,7 @@ void DbcMessageView::DisplayEditor() {
 }
 
 void DbcMessageView::Display() {
+	if (IsEditing()) { ImGui::SetNextItemOpen(true); }
 	bool nodeOpen = ImGui::TreeNode(m_longTitle.c_str());
 	DisplayCtxMenu();
 	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {

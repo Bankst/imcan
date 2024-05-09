@@ -54,10 +54,13 @@ class DbcMessageView {
 	dbcan::Message::Ptr m_editingMsg;
 
 	const std::string m_editTitle;
-	bool BeginEdit() {
-		if (m_editingMsg) return true;
 
-		if (!m_editingMsg && !sm_editingMsgs.contains(m_msg->id)) {
+	bool IsEditing() { return m_editingMsg != nullptr; }
+
+	bool BeginEdit() {
+		if (IsEditing()) return true;
+
+		if (!sm_editingMsgs.contains(m_msg->id)) {
 			// insert copy of message for editor to mutate
 			m_editingMsg = std::make_shared<dbcan::Message>(*m_msg.get());
 			sm_editingMsgs.insert({ m_msg->id, m_editingMsg });
