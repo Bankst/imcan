@@ -6,6 +6,7 @@
 #include <iostream>
 #include <optional>
 
+#include "DbcMessage.h"
 #include "DbcNetwork.h"
 #include "DbcSignal.h"
 #include "fmt/core.h"
@@ -16,36 +17,48 @@
 namespace imcan {
 
 std::unique_ptr<DbcManager> DbcGui::sDbcManager;
+std::map<uint64_t, dbcan::Message::Ptr> DbcMessageView::sm_editingMsgs;
 
-// general-purpose yes-no modal
-void YesNoModal(std::string title, std::string text, std::function<void(const bool)> onPress) {
-	bool modalInteracted = false;
+bool GenericModal(
+	std::string title, std::string text, std::string btn1_text, std::string btn2_text,
+	const std::function<void(const bool, const bool)> &onPress) {
+	bool interacted = false;
 	if (ImGui::BeginPopupModal(title.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::Text("%s", text.c_str());
 
-		static const auto yesStr = "   Yes   ";
-		static const auto noStr = "    No   ";
+		const auto btn1Str = btn1_text.c_str();
+		const auto btn2Str = btn2_text.c_str();
 
 		// all this just to right-align a button...
 		ImGuiStyle &style = ImGui::GetStyle();
 		float availSpace = ImGui::GetContentRegionAvail().x;
-		availSpace -= ImGui::CalcTextSize(yesStr).x;
+		availSpace -= ImGui::CalcTextSize(btn1Str).x;
 		availSpace -= (style.ItemSpacing.x * 2);
-		availSpace -= ImGui::CalcTextSize(noStr).x;
+		availSpace -= ImGui::CalcTextSize(btn2Str).x;
 
-		bool yes = ImGui::Button(yesStr);
+		bool yes = ImGui::Button(btn1Str);
 		ImGui::SameLine(0, availSpace);
-		bool no = ImGui::Button(noStr);
+		bool no = ImGui::Button(btn2Str);
 
-		modalInteracted = yes || no;
-		if (modalInteracted) {
+		interacted = yes || no;
+		if (interacted) {
 			ImGui::CloseCurrentPopup();
-			onPress(yes && !no);
+			onPress(yes, no);
 		}
 		ImGui::EndPopup();
 	}
-	if (modalInteracted) { ImGui::CloseCurrentPopup(); }
-	ImGui::EndPopup();
+	return interacted;
+}
+
+// general-purpose yes-no modal
+bool YesNoModal(
+	std::string title, std::string text, const std::function<void(const bool)> &onPress) {
+	static const auto yesStr = "   Yes   ";
+	static const auto noStr = "    No   ";
+
+	return GenericModal(title, text, yesStr, noStr, [onPress](const bool btn1, const bool btn2) {
+		onPress(btn1 && !btn2);
+	});
 }
 
 bool DbcManager::addDatabase(std::filesystem::path path) {
@@ -78,10 +91,12 @@ void DbcSignalView::DisplayCtxMenu() {
 
 		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr.c_str()); }
 
-		YesNoModal(
+		bool modal = YesNoModal(
 			delModalStr, fmt::format("Delete Signal \"{}\"", m_sig->name), [this](const bool yes) {
 				if (yes) { m_msg->DeleteSignal(m_sig->msgIndex); }
 			});
+		if (modal) { ImGui::CloseCurrentPopup(); }
+		ImGui::EndPopup();
 	}
 }
 
@@ -111,15 +126,18 @@ void DbcSignalView::DisplayEditor() {}
 
 void DbcMessageView::DisplayCtxMenu() {
 	if (ImGui::BeginPopupContextItem()) {
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
 		static const std::string delModalStr = "Delete Message?";
-		ImGui::Text("%s", m_msg->name.c_str());
+		ImGui::Text("%s", m_longTitle.c_str());
 
 		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr.c_str()); }
 
-		YesNoModal(
+		bool modal = YesNoModal(
 			delModalStr, fmt::format("Delete Message \"{}\"", m_msg->name), [this](const bool yes) {
 				if (yes) { m_net->DeleteMessage(m_msg->id); }
 			});
+		if (modal) { ImGui::CloseCurrentPopup(); }
+		ImGui::EndPopup();
 	}
 }
 
@@ -132,10 +150,53 @@ void PrototypeEditableField(std::string label, std::string *backingData) {
 			ImGuiInputTextFlags_EnterReturnsTrue);
 }
 
+void DbcMessageView::DisplayEditor() {
+	if (ImGui::BeginPopup(m_editTitle.c_str())) {
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
+
+		auto msg = sm_editingMsgs.at(m_msg->id);
+		// TODO: make a generic editable field doodad?
+		ImGui::Text("ID: ");
+		ImGui::SameLine();
+		std::string idBuf = fmt::format("{:3x}", msg->id);
+		bool edited = ImGui::InputTextWithHint(
+			"##IdField", "Hexadecimal or Integer value", &idBuf, ImGuiInputTextFlags_CharsHexadecimal);
+		if (edited) { msg->id = std::stoull(idBuf); }
+
+		ImGui ::Text("Transmitter: ");
+		ImGui::SameLine();
+		edited = ImGui::InputTextWithHint("##TxrField", "Transmitting Node", &msg->transmitter);
+
+		ImGui::Text("ID: ");
+		ImGui::SameLine();
+		std::string lenBuf = fmt::format("{}", msg->length);
+		edited = ImGui::InputTextWithHint(
+			"##IdField", "Hexadecimal or Integer value", &lenBuf, ImGuiInputTextFlags_CharsDecimal);
+		if (edited) { msg->length = std::stoi(lenBuf); }
+
+		// TODO: live-apply without full edit exit?
+		if (ImGui::Button("Save")) {
+			EndEdit();
+			ImGui::CloseCurrentPopup();
+		}
+
+		// TODO: prompt on unsaved changes
+		if (ImGui::Button("Close")) { ImGui::CloseCurrentPopup(); }
+
+		ImGui::EndPopup();
+	}
+}
+
 void DbcMessageView::Display() {
-	std::string msgTitle = fmt::format("0x{:3x} ({})", m_msg->id, m_msg->name);
-	bool nodeOpen = ImGui::TreeNode(msgTitle.c_str());
+	bool nodeOpen = ImGui::TreeNode(m_longTitle.c_str());
 	DisplayCtxMenu();
+	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+		if (BeginEdit()) {
+			// popup window for editor
+			ImGui::OpenPopup(m_editTitle.c_str());
+		}
+	}
+	DisplayEditor();
 	if (nodeOpen) {
 		ImGui::Text("ID: 0x%lX (%lu)", m_msg->id, m_msg->id);
 		ImGui::Text("Transmitter: %s", m_msg->transmitter.c_str());
@@ -167,17 +228,14 @@ void DbcMessageView::Display() {
 void DbcMessageView::DeleteSignal(uint64_t sigId) { m_sigToDelete = sigId; }
 
 void DbcNetworkView::Display() {
-	ImGui::Text("Messages Size: %lu", m_net->messages.size());
 	ImGui::Text("Version: %s", std::string(m_net->version).c_str());
 
-	// if (ImGui::Button("Add Message")) {
-	// TODO: change tracking??
-	// dbc.hasChanges = true;
-	// }
-
-	for (auto [id, msg] : m_net->messages) {
-		auto msgView = DbcMessageView { this, msg };
-		msgView.Display();
+	if (ImGui::TreeNode(fmt::format("Messages: {}###Messages", m_net->messages.size()).c_str())) {
+		for (auto [id, msg] : m_net->messages) {
+			auto msgView = DbcMessageView { this, msg };
+			msgView.Display();
+		}
+		ImGui::TreePop();
 	}
 
 	// handle changes
@@ -194,7 +252,7 @@ void DbcNetworkView::Display() {
 }
 
 void DbcGui::DisplayDatabase(DbcDatabase &dbc) {
-	ImGui::Text("Path: %s", dbc.filepath.c_str());
+	ImGui::TextWrapped("Path: %s", dbc.filepath.c_str());
 
 	auto networkView = DbcNetworkView { dbc.getNetwork() };
 	networkView.Display();
@@ -235,15 +293,19 @@ void DbcManager::DisplayLoader() {
 	if (ImGui::BeginTabBar("DBCTabs")) {
 		for (auto it = m_sDatabases.begin(); it != m_sDatabases.end();) {
 			auto &dbc = *it;
-			bool open = true;
 			ImGuiTabItemFlags flags =
 				dbc.getNetwork()->hasChanges ? ImGuiTabItemFlags_UnsavedDocument : ImGuiTabItemFlags_None;
-			if (ImGui::BeginTabItem(dbc.filename.c_str(), &open, flags)) {
+			if (ImGui::BeginTabItem(dbc.filename.c_str(), &dbc.open, flags)) {
 				DbcGui::DisplayDatabase(dbc);
 				ImGui::EndTabItem();
 			}
 
-			if (!open) {
+			if (dbc.getNetwork()->hasChanges && !dbc.open) {
+				// todo: modal prompt
+				fmt::println("Closed unsaved!!!");
+			}
+
+			if (!dbc.open) {
 				// pls go bye bye
 				it = m_sDatabases.erase(it);
 			} else {

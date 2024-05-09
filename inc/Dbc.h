@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -31,7 +32,15 @@ class DbcNetworkView {
 class DbcMessageView {
  public:
 	DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_)
-			: m_net(parentNet_), m_msg(std::move(msg_)) {}
+			: m_net(parentNet_),
+				m_msg(std::move(msg_)),
+				m_longTitle(fmt::format("0x{:3x} ({})", m_msg->id, m_msg->name)),
+				m_editTitle(fmt::format("Editing - 0x{:3x} ({})", m_msg->id, m_msg->name)) {
+		if (sm_editingMsgs.contains(m_msg->id)) {
+			// load editingMsg from map
+			m_editingMsg = sm_editingMsgs.at(m_msg->id);
+		}
+	}
 
 	void Display();
 	void DeleteSignal(uint64_t sigId);
@@ -42,6 +51,35 @@ class DbcMessageView {
 
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;
+	dbcan::Message::Ptr m_editingMsg;
+
+	const std::string m_editTitle;
+	bool BeginEdit() {
+		if (m_editingMsg) return true;
+
+		if (!m_editingMsg && !sm_editingMsgs.contains(m_msg->id)) {
+			// insert copy of message for editor to mutate
+			m_editingMsg = std::make_shared<dbcan::Message>(*m_msg.get());
+			sm_editingMsgs.insert({ m_msg->id, m_editingMsg });
+			return true;
+		}
+		return false;
+	}
+
+	void EndEdit() {
+		if (m_editingMsg && sm_editingMsgs.contains(m_msg->id)) {
+			sm_editingMsgs.erase(m_editingMsg->id);
+			// save to orig msg
+			m_msg.swap(m_editingMsg);
+			m_editingMsg.reset();
+		} else {
+			throw new std::runtime_error("Shitballs 1.0");
+		}
+	}
+
+	const std::string m_longTitle;
+
+	static std::map<uint64_t, dbcan::Message::Ptr> sm_editingMsgs;
 
 	uint64_t m_sigToDelete = 0;  // signals are 1-indexed, so 0 means none
 };
@@ -70,6 +108,7 @@ class DbcDatabase {
 
 	std::filesystem::path filepath;
 	std::string filename;
+	bool open = true;
 
 	const std::shared_ptr<dbcan::Network> getNetwork() { return m_network; }
 
