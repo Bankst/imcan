@@ -17,7 +17,7 @@ class Network {
 	std::string version = "";
 	std::vector<std::string> infoBlock;
 	std::unordered_map<std::string, std::string> attributes;
-	std::vector<std::string> unusedNodes;
+	std::vector<std::string> nodes;
 	std::map<uint64_t, std::shared_ptr<Message>> messages;
 
 	// TODO: some way to track diff of changes?

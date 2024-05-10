@@ -7,7 +7,7 @@
 
 int main() {
 	// Create a network from the DBC file
-	auto network = dbcan::Network::createFromDBC("vehicle.dbc");
+	auto network = dbcan::Network::createFromDBC("acura_ilx_2016_nidec.dbc");
 	if (!network) {
 		fmt::println(stderr, "DBC load failure!");
 		return 1;
@@ -21,13 +21,12 @@ int main() {
 	fmt::println("Attributes ({}){}", attrCount, attrCount != 0 ? ":" : "");
 	for (const auto& [key, value] : network->attributes) { fmt::println("  {}: {}", key, value); }
 
-	// Print unused nodes
-	std::cout << "Unused Nodes:\n";
-	// for (const auto& node : network->unusedNodes) { fmt::println("  {}", node); }
+	// Print nodes
+	std::cout << "Nodes:\n";
+	for (const auto& node : network->nodes) { fmt::println("  {}", node); }
 
 	// Print messages and their signals
 	fmt::println("Messages: ({})", (int) network->messages.size());
-	return 0;
 	for (const auto& [id, msg] : network->messages) {
 		fmt::println(
 			"  Message ID: {}, Name: {}, Length: {}, Signals: {}", id, msg->name, msg->length,

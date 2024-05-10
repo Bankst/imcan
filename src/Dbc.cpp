@@ -12,6 +12,7 @@
 #include "fmt/core.h"
 #include "glass/Context.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_stdlib.h"
 
 namespace imcan {
@@ -86,6 +87,7 @@ bool DbcManager::addDatabase(std::filesystem::path path) {
 
 void DbcSignalView::DisplayCtxMenu() {
 	if (ImGui::BeginPopupContextItem()) {
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
 		static const std::string delModalStr = "Delete Signal?";
 		ImGui::Text("%s", m_sig->name.c_str());
 
@@ -131,6 +133,7 @@ void DbcMessageView::DisplayCtxMenu() {
 		ImGui::Text("%s", m_longTitle.c_str());
 
 		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr.c_str()); }
+		if (ImGui::Button("Edit")) { ImGui::OpenPopup(m_editTitle.c_str()); }
 
 		bool modal = YesNoModal(
 			delModalStr, fmt::format("Delete Message \"{}\"", m_msg->name), [this](const bool yes) {
@@ -203,7 +206,7 @@ void DbcMessageView::DisplayEditor() {
 
 void DbcMessageView::Display() {
 	if (IsEditing()) { ImGui::SetNextItemOpen(true); }
-	bool nodeOpen = ImGui::TreeNode(m_longTitle.c_str());
+	bool nodeOpen = ImGui::TreeNodeEx(m_longTitle.c_str(), ImGuiTreeNodeFlags_OpenOnArrow);
 	DisplayCtxMenu();
 	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
 		if (BeginEdit()) {

@@ -33,12 +33,12 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 	int infoCounter = 0;
 	while (std::getline(file, line)) {
 		// fmt::println("scanning - {}", line);
-		bool isVersion = ctre::starts_with<"VERSION">(line);
-		bool isInfoBlock = ctre::starts_with<"NS_">(line);
-		bool isNodes = ctre::starts_with<"BU_">(line);
-		bool isMsg = ctre::starts_with<"BO_">(line);
-		bool isSig = ctre::starts_with<" +SG_">(line);
-		bool isAttr = ctre::starts_with<"BA_">(line);
+		bool isVersion = ctre::starts_with<"VERSION\\s">(line);
+		bool isInfoBlock = ctre::starts_with<"NS_\\s">(line);
+		bool isNodes = ctre::starts_with<"BU_\\s">(line);
+		bool isMsg = ctre::starts_with<"BO_\\s">(line);
+		bool isSig = ctre::starts_with<" +SG_\\s">(line);
+		bool isAttr = ctre::starts_with<"BA_\\s">(line);
 		if (line.empty() || line[0] == '#') {
 			continue;
 		} else if (isVersion) {
@@ -57,7 +57,7 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 			if (auto [whole, nodes] = ctre::match<kNodesRegexCtre>(line); whole) {
 				nodesStream = std::istringstream { nodes.str() };
 				std::string node;
-				while (nodesStream >> node) { net->unusedNodes.push_back(node); }
+				while (nodesStream >> node) { net->nodes.push_back(node); }
 			}
 		} else if (isMsg) {
 			if (auto msgPtr = Message::fromString(line); msgPtr) {
@@ -69,6 +69,7 @@ std::shared_ptr<Network> Network::createFromDBC(const std::string &filename) {
 		} else if (isSig && curMsgId.has_value()) {  // TODO: better?
 			if (auto sigPtr = Signal::fromString(line); sigPtr) {
 				net->messages.at(curMsgId.value())->addSignal(sigPtr);
+				sig_counter++;
 			} else {
 				fmt::println("Err: failed parse sig: {}", line);
 			}
