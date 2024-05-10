@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -13,15 +14,18 @@
 
 namespace imcan {
 
+class DbcMessageView;  // forward-decl
 class DbcNetworkView {
  public:
 	DbcNetworkView(const std::shared_ptr<dbcan::Network> net_) : m_net(net_) {}
 
 	void Display();
 	void MadeChanges() { m_net->hasChanges = true; }
+	void DeleteMessage(uint64_t id);
 
  private:
 	const std::shared_ptr<dbcan::Network> m_net;
+	std::optional<uint64_t> m_msgToDelete = std::nullopt;
 };
 
 class DbcMessageView {
@@ -33,6 +37,9 @@ class DbcMessageView {
 	void DeleteSignal(uint64_t sigId);
 
  private:
+	void DisplayCtxMenu();
+	void DisplayEditor();
+
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;
 
