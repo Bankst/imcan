@@ -26,9 +26,9 @@ void DbcMessageView::Display() {
 
 	ImGui::SameLine(0, 1);
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-	bool edit = ImGui::SmallButton("e##EditButton");
+	bool edit = ImGui::SmallButton(fmt::format("e##EditBtn{}", m_msg->id).c_str());
 	ImGui::SameLine(0, 1);
-	bool del = ImGui::SmallButton("d##DeleteButton");
+	bool del = ImGui::SmallButton(fmt::format("d##DelBtn{}", m_msg->id).c_str());
 	ImGui::PopStyleVar();
 
 	if (edit) {
@@ -39,9 +39,6 @@ void DbcMessageView::Display() {
 		}
 	}
 
-	if (del) {}
-
-	DisplayEditor();
 	if (nodeOpen) {
 		ImGui::Text("ID: 0x%lX (%lu)", m_msg->id, m_msg->id);
 		ImGui::Text("Transmitter: %s", m_msg->transmitter.c_str());
@@ -70,12 +67,13 @@ void DbcMessageView::Display() {
 	}
 
 	// delete/edit popup handlers
-
-	bool modal = gui::YesNoModal(
-		sm_delModalStr, fmt::format("Delete Message \"{}\"", m_msg->name), [this](const bool yes) {
-			if (yes) { m_net->DeleteMessage(m_msg->id); }
-		});
-	if (modal) { ImGui::CloseCurrentPopup(); }
+	if (del) {
+		bool modal = gui::YesNoModal(
+			sm_delModalStr, fmt::format("Delete Message \"{}\"", m_msg->name), [this](const bool yes) {
+				if (yes) { m_net->DeleteMessage(m_msg->id); }
+			});
+		if (modal) { ImGui::CloseCurrentPopup(); }
+	}
 }
 
 void DbcMessageView::DeleteSignal(uint64_t sigId) { m_sigToDelete = sigId; }
@@ -93,11 +91,17 @@ void DbcMessageView::DisplayCtxMenu() {
 }
 
 void DbcMessageView::DisplayEditor() {
+	// idk
+	DisplayEditorInternal();
+}
+
+void DbcMessageView::DisplayEditorInternal() {
 	if (!IsEditing()) return;
 	auto ctx = sm_editingMsgs.at(m_msg->id);
 
 	int flags = ImGuiWindowFlags_AlwaysAutoResize;
 	if (ctx->modified) { flags |= ImGuiWindowFlags_UnsavedDocument; }
+
 	bool editorOpen = ImGui::Begin(m_editTitle.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 	if (editorOpen) {
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
@@ -155,16 +159,16 @@ void DbcMessageView::DisplayEditor() {
 		bool doSave = false;
 		bool stopEdit = true;
 		if (ImGui::Button("OK")) {
+			// TODO: close??
 			updateEdit = true;
 			doSave = m_editContext->modified;
-			// TODO: close??
-			EndEdit(m_editContext->modified);
 		}
 		ImGui::SameLine();
 
 		ImGui::BeginDisabled(!m_editContext->modified);
 		if (ImGui::Button("Apply")) {
 			// TODO: close??
+			updateEdit = true;
 			doSave = true;
 			stopEdit = false;
 		}
@@ -185,8 +189,10 @@ void DbcMessageView::DisplayEditor() {
 bool DbcMessageView::IsEditing() const { return m_editContext != nullptr; }
 
 void DbcMessageView::UpdateEditingMsg() {
+	ImVec2 windowPos = { 50, 50 };
 	m_editContext.reset();
-	m_editContext = std::make_shared<EditCtx>(false, std::make_shared<dbcan::Message>(*m_msg.get()));
+	m_editContext =
+		std::make_shared<EditCtx>(false, windowPos, std::make_shared<dbcan::Message>(*m_msg.get()));
 	sm_editingMsgs.insert_or_assign(m_msg->id, m_editContext);
 }
 

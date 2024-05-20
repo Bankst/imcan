@@ -42,11 +42,11 @@ class DbcMessageView {
 	void Display();
 	void DeleteSignal(uint64_t sigId);
 
- private:
-	void DisplayCtxMenu();
 	void DisplayEditor();
 
-	EditCtxPtr buildEditCtx(dbcan::Message::Ptr msgPtr);
+ private:
+	void DisplayCtxMenu();
+	void DisplayEditorInternal();
 
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;

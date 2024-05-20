@@ -91,6 +91,8 @@ void DbcNetworkView::Display() {
 		for (auto [id, msg] : m_net->messages) {
 			auto msgView = DbcMessageView { this, msg };
 			msgView.Display();
+			// render editor separately
+			msgView.DisplayEditor();
 		}
 		ImGui::TreePop();
 	}
