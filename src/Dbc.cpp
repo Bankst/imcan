@@ -9,6 +9,7 @@
 #include "DbcMessage.h"
 #include "DbcNetwork.h"
 #include "DbcSignal.h"
+#include "GuiHelpers.h"
 #include "fmt/core.h"
 #include "glass/Context.h"
 #include "imgui.h"
@@ -18,49 +19,6 @@
 namespace imcan {
 
 std::unique_ptr<DbcManager> DbcGui::sDbcManager;
-std::map<uint64_t, dbcan::Message::Ptr> DbcMessageView::sm_editingMsgs;
-
-bool GenericModal(
-	std::string title, std::string text, std::string btn1_text, std::string btn2_text,
-	const std::function<void(const bool, const bool)> &onPress) {
-	bool interacted = false;
-	if (ImGui::BeginPopupModal(title.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::Text("%s", text.c_str());
-
-		const auto btn1Str = btn1_text.c_str();
-		const auto btn2Str = btn2_text.c_str();
-
-		// all this just to right-align a button...
-		ImGuiStyle &style = ImGui::GetStyle();
-		float availSpace = ImGui::GetContentRegionAvail().x;
-		availSpace -= ImGui::CalcTextSize(btn1Str).x;
-		availSpace -= (style.ItemSpacing.x * 2);
-		availSpace -= ImGui::CalcTextSize(btn2Str).x;
-
-		bool yes = ImGui::Button(btn1Str);
-		ImGui::SameLine(0, availSpace);
-		bool no = ImGui::Button(btn2Str);
-
-		interacted = yes || no;
-		if (interacted) {
-			ImGui::CloseCurrentPopup();
-			onPress(yes, no);
-		}
-		ImGui::EndPopup();
-	}
-	return interacted;
-}
-
-// general-purpose yes-no modal
-bool YesNoModal(
-	std::string title, std::string text, const std::function<void(const bool)> &onPress) {
-	static const auto yesStr = "   Yes   ";
-	static const auto noStr = "    No   ";
-
-	return GenericModal(title, text, yesStr, noStr, [onPress](const bool btn1, const bool btn2) {
-		onPress(btn1 && !btn2);
-	});
-}
 
 bool DbcManager::addDatabase(std::filesystem::path path) {
 	if (std::filesystem::exists(path)) {
@@ -93,7 +51,7 @@ void DbcSignalView::DisplayCtxMenu() {
 
 		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr.c_str()); }
 
-		bool modal = YesNoModal(
+		bool modal = gui::YesNoModal(
 			delModalStr, fmt::format("Delete Signal \"{}\"", m_sig->name), [this](const bool yes) {
 				if (yes) { m_msg->DeleteSignal(m_sig->msgIndex); }
 			});
@@ -125,125 +83,6 @@ void DbcSignalView::Display() {
 }
 
 void DbcSignalView::DisplayEditor() {}
-
-void DbcMessageView::DisplayCtxMenu() {
-	if (ImGui::BeginPopupContextItem()) {
-		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
-		static const std::string delModalStr = "Delete Message?";
-		ImGui::Text("%s", m_longTitle.c_str());
-
-		if (ImGui::Button("Delete")) { ImGui::OpenPopup(delModalStr.c_str()); }
-		if (ImGui::Button("Edit")) { ImGui::OpenPopup(m_editTitle.c_str()); }
-
-		bool modal = YesNoModal(
-			delModalStr, fmt::format("Delete Message \"{}\"", m_msg->name), [this](const bool yes) {
-				if (yes) { m_net->DeleteMessage(m_msg->id); }
-			});
-		if (modal) { ImGui::CloseCurrentPopup(); }
-		ImGui::EndPopup();
-	}
-}
-
-void PrototypeEditableField(std::string label, std::string *backingData) {
-	ImGui::Text("TransmitterEdit: ");
-	ImGui::SameLine();
-	ImGui::InputText(
-		"##TransmitterEdit", backingData,
-		ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll |
-			ImGuiInputTextFlags_EnterReturnsTrue);
-}
-
-void DbcMessageView::DisplayEditor() {
-	bool editorOpen = ImGui::BeginPopup(m_editTitle.c_str());
-	if (!editorOpen && IsEditing()) { EndEdit(false); }
-	if (editorOpen) {
-		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
-
-		auto msg = sm_editingMsgs.at(m_msg->id);
-		// TODO: make a generic editable field doodad?
-		ImGui::Text("ID:");
-		ImGui::SameLine();
-		std::string idBuf = fmt::format("0x{:3x}", msg->id);
-		ImGui::SetNextItemWidth(ImGui::CalcTextSize("0x123456789").x);
-		bool edited = ImGui::InputTextWithHint(
-			"##IdField", "Hexadecimal value", &idBuf, ImGuiInputTextFlags_CharsHexadecimal);
-		if (edited) { msg->id = std::stoull(idBuf); }
-
-		ImGui::Text("Transmitter:");
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(ImGui::CalcTextSize("ExampleTransmitterNameHere______").x);
-		edited = ImGui::InputTextWithHint("##TxrField", "Transmitting Node", &msg->transmitter);
-		if (edited) {
-			// do nothin ig
-		}
-
-		ImGui::Text("Length:");
-		ImGui::SameLine();
-		std::string lenBuf = fmt::format("{}", msg->length);
-		ImGui::SetNextItemWidth(ImGui::CalcTextSize("999").x);
-		edited = ImGui::InputTextWithHint(
-			"##LengthField", "Hexadecimal or Integer value", &lenBuf, ImGuiInputTextFlags_CharsDecimal);
-		if (edited) { msg->length = std::stoi(lenBuf); }
-
-		if (ImGui::Button("OK")) {
-			EndEdit(edited);
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::BeginDisabled(edited);
-		if (ImGui::Button("Apply")) { EndEdit(true, false); }
-		ImGui::EndDisabled();
-
-		// TODO: prompt on unsaved changes
-		if (ImGui::Button("Close")) {
-			EndEdit(false);
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::EndPopup();
-	}
-}
-
-void DbcMessageView::Display() {
-	if (IsEditing()) { ImGui::SetNextItemOpen(true); }
-	bool nodeOpen = ImGui::TreeNodeEx(m_longTitle.c_str(), ImGuiTreeNodeFlags_OpenOnArrow);
-	DisplayCtxMenu();
-	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-		if (BeginEdit()) {
-			// popup window for editor
-			ImGui::OpenPopup(m_editTitle.c_str());
-		}
-	}
-	DisplayEditor();
-	if (nodeOpen) {
-		ImGui::Text("ID: 0x%lX (%lu)", m_msg->id, m_msg->id);
-		ImGui::Text("Transmitter: %s", m_msg->transmitter.c_str());
-		ImGui::Text("Signals: %lu", m_msg->signals.size());
-		ImGui::Text("Size: %hhu", m_msg->length);
-		ImGui::Text("Comment: %s", m_msg->comment.c_str());
-
-		if (ImGui::Button("Add Signal")) { std::cout << "later dawg" << std::endl; }
-
-		for (auto &[_, sig] : m_msg->signals) {
-			auto sigView = DbcSignalView { this, sig };
-			sigView.Display();
-		}
-		ImGui::TreePop();
-
-		// handle deletion after iteration
-		if (m_sigToDelete != 0) {
-			bool ok = m_msg->deleteSignal(m_sigToDelete);
-			if (!ok) {
-				fmt::println("Err: failed to delete signal {} from message {}", m_sigToDelete, m_msg->name);
-			} else {
-				m_net->MadeChanges();
-			}
-			m_sigToDelete = 0;
-		}
-	}
-}
-
-void DbcMessageView::DeleteSignal(uint64_t sigId) { m_sigToDelete = sigId; }
 
 void DbcNetworkView::Display() {
 	ImGui::Text("Version: %s", std::string(m_net->version).c_str());

@@ -31,16 +31,13 @@ class DbcNetworkView {
 
 class DbcMessageView {
  public:
-	DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_)
-			: m_net(parentNet_),
-				m_msg(std::move(msg_)),
-				m_longTitle(fmt::format("0x{:3x} ({})", m_msg->id, m_msg->name)),
-				m_editTitle(fmt::format("Editing - 0x{:3x} ({})", m_msg->id, m_msg->name)) {
-		if (sm_editingMsgs.contains(m_msg->id)) {
-			// load editingMsg from map
-			m_editingMsg = sm_editingMsgs.at(m_msg->id);
-		}
-	}
+	DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_);
+
+	struct EditCtx {
+		bool modified;
+		dbcan::Message::Ptr msg;
+	};
+	using EditCtxPtr = std::shared_ptr<EditCtx>;
 
 	void Display();
 	void DeleteSignal(uint64_t sigId);
@@ -49,52 +46,24 @@ class DbcMessageView {
 	void DisplayCtxMenu();
 	void DisplayEditor();
 
+	EditCtxPtr buildEditCtx(dbcan::Message::Ptr msgPtr);
+
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;
-	dbcan::Message::Ptr m_editingMsg;
-
+	EditCtxPtr m_editContext;
 	const std::string m_editTitle;
 
-	bool IsEditing() { return m_editingMsg != nullptr; }
-
-	void UpdateEditingMsg() {
-		m_editingMsg.reset();
-		m_editingMsg = std::make_shared<dbcan::Message>(*m_msg.get());
-		sm_editingMsgs.insert_or_assign(m_msg->id, m_editingMsg);
-	}
-
-	bool BeginEdit() {
-		if (IsEditing()) return true;
-
-		if (!sm_editingMsgs.contains(m_msg->id)) {
-			// insert copy of message for editor to mutate
-			UpdateEditingMsg();
-			return true;
-		}
-		return false;
-	}
-
-	void EndEdit(bool save, bool end = true) {
-		if (m_editingMsg && sm_editingMsgs.contains(m_msg->id)) {
-			if (end) { sm_editingMsgs.erase(m_editingMsg->id); }
-
-			// save to orig msg, copy back if not ending
-			if (save) {
-				std::swap(*m_editingMsg, *m_msg);
-				if (!end) { UpdateEditingMsg(); }
-			}
-
-			if (end) { m_editingMsg.reset(); }
-		} else {
-			throw new std::runtime_error("Shitballs 1.0");
-		}
-	}
+	bool IsEditing() const;
+	void UpdateEditingMsg();
+	bool BeginEdit();
+	void EndEdit(bool save, bool end = true);
 
 	const std::string m_longTitle;
 
-	static std::map<uint64_t, dbcan::Message::Ptr> sm_editingMsgs;
-
 	uint64_t m_sigToDelete = 0;  // signals are 1-indexed, so 0 means none
+
+	static std::map<uint64_t, EditCtxPtr> sm_editingMsgs;
+	static inline const std::string sm_delModalStr = "Delete Message?";
 };
 
 class DbcSignalView {
