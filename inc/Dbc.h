@@ -15,7 +15,6 @@
 
 namespace imcan {
 
-class DbcMessageView;  // forward-decl
 class DbcNetworkView {
  public:
 	DbcNetworkView(const std::shared_ptr<dbcan::Network> net_) : m_net(net_) {}
@@ -45,12 +44,16 @@ class DbcMessageView {
 	bool IsEditing() const;
 	void DisplayEditor();
 
+	bool HasUnsavedChanges() const;
+
  private:
-	void DisplayCtxMenu();
 	void DisplayEditorInternal();
 
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;
+
+	const std::string m_longTitle;
+	const std::string m_delModalStr;
 
 	EditCtxPtr m_editContext;
 	const std::string m_editTitle;
@@ -59,24 +62,25 @@ class DbcMessageView {
 	bool BeginEdit();
 	void EndEdit(bool save, bool end = true);
 
-	const std::string m_longTitle;
-
 	uint64_t m_sigToDelete = 0;  // signals are 1-indexed, so 0 means none
 
+	// TODO: move these to... not here? Some kind of per-DBC store.
+	// Also clear them upon un-load of DBC
+	static std::map<uint64_t, bool> sm_modifiedStatuses;
 	static std::map<uint64_t, EditCtxPtr> sm_editingMsgs;
-	static inline const std::string sm_delModalStr = "Delete Message?";
 };
 
-class DbcMessageEditorContext {
- public:
-	DbcMessageEditorContext(const std::string title_, dbcan::Message::Ptr msg_);
+// TODO: split message editing to fully separate class
+// class DbcMessageEditorContext {
+//  public:
+// 	DbcMessageEditorContext(const std::string title_, dbcan::Message::Ptr msg_);
 
- private:
-	const std::string m_title;
-	dbcan::Message::Ptr m_origMsg;
-	dbcan::Message::Ptr m_editMsg;
-	bool modified;
-};
+//  private:
+// 	const std::string m_title;
+// 	dbcan::Message::Ptr m_origMsg;
+// 	dbcan::Message::Ptr m_editMsg;
+// 	bool modified;
+// };
 
 class DbcSignalView {
  public:

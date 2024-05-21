@@ -5,6 +5,7 @@
 
 namespace imcan {
 
+std::map<uint64_t, bool> DbcMessageView::sm_modifiedStatuses;
 std::map<uint64_t, DbcMessageView::EditCtxPtr> DbcMessageView::sm_editingMsgs;
 
 DbcMessageView::DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_)
@@ -12,7 +13,8 @@ DbcMessageView::DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr m
 			m_msg(std::move(msg_)),
 			// TODO: title based on a unique ID - needs dbcan changes
 			m_longTitle(fmt::format("0x{:3x} ({})", m_msg->id, m_msg->name)),
-			m_editTitle(fmt::format("Editing - 0x{:3x} ({})", m_msg->id, m_msg->name)) {
+			m_editTitle(fmt::format("Editing - 0x{:3x} ({})", m_msg->id, m_msg->name)),
+			m_delModalStr(fmt::format("Delete Message?###{}", m_msg->id)) {
 	if (sm_editingMsgs.contains(m_msg->id)) {
 		// load editingMsg from map
 		m_editContext = sm_editingMsgs.at(m_msg->id);
@@ -23,13 +25,17 @@ void DbcMessageView::Display() {
 	if (IsEditing()) { ImGui::SetNextItemOpen(true); }
 	bool nodeOpen = ImGui::TreeNodeEx(m_longTitle.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
 
-	// DisplayCtxMenu();
-
 	ImGui::SameLine(0, 1);
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
 	bool edit = ImGui::SmallButton(fmt::format("e##EditBtn{}", m_msg->id).c_str());
 	ImGui::SameLine(0, 1);
 	bool del = ImGui::SmallButton(fmt::format("d##DelBtn{}", m_msg->id).c_str());
+	if (HasUnsavedChanges()) {
+		ImGui::SameLine(0, 1);
+		ImGui::BeginDisabled();
+		ImGui::SmallButton("*");
+		ImGui::EndDisabled();
+	}
 	ImGui::PopStyleVar();
 
 	if (edit) {
@@ -68,28 +74,17 @@ void DbcMessageView::Display() {
 	}
 
 	// delete/edit popup handlers
-	if (del) {
-		bool modal = gui::YesNoModal(
-			sm_delModalStr, fmt::format("Delete Message \"{}\"", m_msg->name), [this](const bool yes) {
-				if (yes) { m_net->DeleteMessage(m_msg->id); }
-			});
-		if (modal) { ImGui::CloseCurrentPopup(); }
-	}
+	bool delModal = gui::YesNoModal(
+		m_delModalStr, fmt::format("Delete Message \"0x{:3x} {}\"?", m_msg->id, m_msg->name),
+		[this](const bool yes) {
+			if (yes) { m_net->DeleteMessage(m_msg->id); }
+		});
+	if (delModal) { ImGui::CloseCurrentPopup(); }
+
+	if (del) { ImGui::OpenPopup(m_delModalStr.c_str()); }
 }
 
 void DbcMessageView::DeleteSignal(uint64_t sigId) { m_sigToDelete = sigId; }
-
-void DbcMessageView::DisplayCtxMenu() {
-	if (ImGui::BeginPopupContextItem()) {
-		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
-		ImGui::Text("%s", m_longTitle.c_str());
-
-		if (ImGui::Button("Delete")) { ImGui::OpenPopup(sm_delModalStr.c_str()); }
-		if (ImGui::Button("Edit")) { BeginEdit(); }
-
-		ImGui::EndPopup();
-	}
-}
 
 void DbcMessageView::DisplayEditor() {
 	// idk
@@ -207,23 +202,32 @@ bool DbcMessageView::BeginEdit() {
 	return false;
 }
 
-void DbcMessageView::EndEdit(bool save, bool end) {
+void DbcMessageView::EndEdit(bool apply, bool end) {
 	if (m_editContext && sm_editingMsgs.contains(m_msg->id)) {
 		if (end) { sm_editingMsgs.erase(m_editContext->msg->id); }
 
-		// save to orig msg, copy back if not ending
-		if (save) {
+		// apply to orig msg, copy back if not ending
+		if (apply) {
 			std::swap(*m_editContext->msg, *m_msg);
 			if (!end) { UpdateEditingMsg(); }
 
 			// TODO: equality checker on members
 			m_editContext->modified = false;
+			sm_modifiedStatuses[m_msg->id] = true;
 		}
 
 		if (end) { m_editContext.reset(); }
 	} else {
 		throw new std::runtime_error("Shitballs 1.0");
 	}
+}
+
+bool DbcMessageView::HasUnsavedChanges() const {
+	return sm_modifiedStatuses[m_msg->id];
+
+	// auto iter = sm_modifiedStatuses.find(m_msg->id);
+	// if (iter != sm_modifiedStatuses.end()) { return iter->second; }
+	// return false;
 }
 
 }  // namespace imcan
