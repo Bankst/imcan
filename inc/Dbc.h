@@ -42,6 +42,7 @@ class DbcMessageView {
 	void Display();
 	void DeleteSignal(uint64_t sigId);
 
+	bool IsEditing() const;
 	void DisplayEditor();
 
  private:
@@ -50,10 +51,10 @@ class DbcMessageView {
 
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;
+
 	EditCtxPtr m_editContext;
 	const std::string m_editTitle;
 
-	bool IsEditing() const;
 	void UpdateEditingMsg();
 	bool BeginEdit();
 	void EndEdit(bool save, bool end = true);
@@ -64,6 +65,17 @@ class DbcMessageView {
 
 	static std::map<uint64_t, EditCtxPtr> sm_editingMsgs;
 	static inline const std::string sm_delModalStr = "Delete Message?";
+};
+
+class DbcMessageEditorContext {
+ public:
+	DbcMessageEditorContext(const std::string title_, dbcan::Message::Ptr msg_);
+
+ private:
+	const std::string m_title;
+	dbcan::Message::Ptr m_origMsg;
+	dbcan::Message::Ptr m_editMsg;
+	bool modified;
 };
 
 class DbcSignalView {

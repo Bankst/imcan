@@ -88,13 +88,16 @@ void DbcNetworkView::Display() {
 	ImGui::Text("Version: %s", std::string(m_net->version).c_str());
 
 	if (ImGui::TreeNode(fmt::format("Messages: {}###Messages", m_net->messages.size()).c_str())) {
+		std::vector<std::shared_ptr<DbcMessageView>> viewsWithEditors;
 		for (auto [id, msg] : m_net->messages) {
-			auto msgView = DbcMessageView { this, msg };
-			msgView.Display();
-			// render editor separately
-			msgView.DisplayEditor();
+			auto msgView = std::make_shared<DbcMessageView>(this, msg);
+			msgView->Display();
+			if (msgView->IsEditing()) { viewsWithEditors.push_back(msgView); }
 		}
 		ImGui::TreePop();
+
+		// render editors outside of tree
+		for (auto &view : viewsWithEditors) { view->DisplayEditor(); }
 	}
 
 	// handle changes

@@ -10,6 +10,7 @@ std::map<uint64_t, DbcMessageView::EditCtxPtr> DbcMessageView::sm_editingMsgs;
 DbcMessageView::DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_)
 		: m_net(parentNet_),
 			m_msg(std::move(msg_)),
+			// TODO: title based on a unique ID - needs dbcan changes
 			m_longTitle(fmt::format("0x{:3x} ({})", m_msg->id, m_msg->name)),
 			m_editTitle(fmt::format("Editing - 0x{:3x} ({})", m_msg->id, m_msg->name)) {
 	if (sm_editingMsgs.contains(m_msg->id)) {
@@ -179,20 +180,16 @@ void DbcMessageView::DisplayEditorInternal() {
 			// TODO: prompt on unsaved changes
 			updateEdit = true;
 		}
-
-		ImGui::End();
-
 		if (updateEdit) { EndEdit(doSave, stopEdit); }
 	}
+	ImGui::End();
 }
 
 bool DbcMessageView::IsEditing() const { return m_editContext != nullptr; }
 
 void DbcMessageView::UpdateEditingMsg() {
-	ImVec2 windowPos = { 50, 50 };
 	m_editContext.reset();
-	m_editContext =
-		std::make_shared<EditCtx>(false, windowPos, std::make_shared<dbcan::Message>(*m_msg.get()));
+	m_editContext = std::make_shared<EditCtx>(false, std::make_shared<dbcan::Message>(*m_msg.get()));
 	sm_editingMsgs.insert_or_assign(m_msg->id, m_editContext);
 }
 
