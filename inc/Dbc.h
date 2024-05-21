@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -14,7 +15,6 @@
 
 namespace imcan {
 
-class DbcMessageView;  // forward-decl
 class DbcNetworkView {
  public:
 	DbcNetworkView(const std::shared_ptr<dbcan::Network> net_) : m_net(net_) {}
@@ -30,21 +30,57 @@ class DbcNetworkView {
 
 class DbcMessageView {
  public:
-	DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_)
-			: m_net(parentNet_), m_msg(std::move(msg_)) {}
+	DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_);
+
+	struct EditCtx {
+		bool modified;
+		dbcan::Message::Ptr msg;
+	};
+	using EditCtxPtr = std::shared_ptr<EditCtx>;
 
 	void Display();
 	void DeleteSignal(uint64_t sigId);
 
- private:
-	void DisplayCtxMenu();
+	bool IsEditing() const;
 	void DisplayEditor();
+
+	bool HasUnsavedChanges() const;
+
+ private:
+	void DisplayEditorInternal();
 
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;
 
+	const std::string m_longTitle;
+	const std::string m_delModalStr;
+
+	EditCtxPtr m_editContext;
+	const std::string m_editTitle;
+
+	void UpdateEditingMsg();
+	bool BeginEdit();
+	void EndEdit(bool save, bool end = true);
+
 	uint64_t m_sigToDelete = 0;  // signals are 1-indexed, so 0 means none
+
+	// TODO: move these to... not here? Some kind of per-DBC store.
+	// Also clear them upon un-load of DBC
+	static std::map<uint64_t, bool> sm_modifiedStatuses;
+	static std::map<uint64_t, EditCtxPtr> sm_editingMsgs;
 };
+
+// TODO: split message editing to fully separate class
+// class DbcMessageEditorContext {
+//  public:
+// 	DbcMessageEditorContext(const std::string title_, dbcan::Message::Ptr msg_);
+
+//  private:
+// 	const std::string m_title;
+// 	dbcan::Message::Ptr m_origMsg;
+// 	dbcan::Message::Ptr m_editMsg;
+// 	bool modified;
+// };
 
 class DbcSignalView {
  public:
@@ -70,6 +106,7 @@ class DbcDatabase {
 
 	std::filesystem::path filepath;
 	std::string filename;
+	bool open = true;
 
 	const std::shared_ptr<dbcan::Network> getNetwork() { return m_network; }
 

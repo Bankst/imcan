@@ -12,6 +12,8 @@ namespace dbcan {
 class Message {
  public:
 	using Ptr = std::shared_ptr<Message>;
+	Message() = default;
+	~Message() = default;
 
 	uint64_t id = 0;
 	std::string name = "";

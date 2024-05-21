@@ -1,5 +1,5 @@
 ---
-Checks:          'bugprone-*,clang-diagnostic-*,clang-analyzer-*,modernize-*,-modernize-use-trailing-return-type,-bugprone-easily-swappable-parameters'
+Checks:          'bugprone-*,clang-diagnostic-*,clang-analyzer-*,modernize-*,-modernize-use-nodiscard,-modernize-use-trailing-return-type,-bugprone-easily-swappable-parameters'
 WarningsAsErrors: true
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
