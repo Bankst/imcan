@@ -3,6 +3,7 @@
 #include "ImCan.h"
 #include "glass/Context.h"
 #include "glass/MainMenuBar.h"
+#include "imgui.h"
 
 namespace gui = wpi::gui;
 
@@ -33,13 +34,16 @@ auto main(int argc, char **argv) -> int {
 
 	gui::AddLateExecute([] { gMainMenu.Display(); });
 
-	gMainMenu.AddMainMenu([] {
+	bool showDemo = false;
+
+	gMainMenu.AddMainMenu([&] {
 		if (ImGui::BeginMenu("Windows")) {
 			bool dbcMgrVis = imcan::DbcGui::sDbcManager->GetWindow("Loader")->IsVisible();
 			std::string dbcMgrItem = dbcMgrVis ? "DBC Loader (Hide)" : "DBC Loader (Show)";
 			if (ImGui::MenuItem(dbcMgrItem.c_str())) {
 				imcan::DbcGui::sDbcManager->GetWindow("Loader")->SetVisible(!dbcMgrVis);
 			}
+
 			ImGui::EndMenu();
 		}
 
@@ -47,9 +51,10 @@ auto main(int argc, char **argv) -> int {
 			if (ImGui::MenuItem("About")) { gAbout = true; }
 			ImGui::EndMenu();
 		}
+		ImGui::Checkbox("Demo", &showDemo);
 	});
 
-	gui::AddLateExecute([] {
+	gui::AddLateExecute([&] {
 		if (gAbout) {
 			ImGui::OpenPopup("About");
 			gAbout = false;
@@ -63,6 +68,8 @@ auto main(int argc, char **argv) -> int {
 			if (ImGui::Button("Close")) { ImGui::CloseCurrentPopup(); }
 			ImGui::EndPopup();
 		}
+
+		if (showDemo) { ImGui::ShowDemoWindow(&showDemo); }
 	});
 
 	gui::Initialize("ImCan", 1024, 768, ImGuiConfigFlags_DockingEnable);
