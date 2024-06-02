@@ -187,9 +187,18 @@ void DbcMessageView::DisplayEditorInternal() {
 }
 
 void DbcMessageView::DisplayEditorSignalsInternal() {
-	ImGui::SeparatorText("SignalsShit");
+	ImGui::SeparatorText("Signals");
+
+	if (m_editContext->msg->signals.empty()) {
+		if (ImGui::Button("Add Signal")) {
+			// this is gonna suck lol
+			fmt::println("TODO: add signal from edit context");
+		}
+		return;
+	}
 
 	// TODO: signal Selectable list
+	// fake current signal for now, always first one
 
 	// TODO: FD support
 	// TODO: bit number top row/left col header
@@ -198,47 +207,17 @@ void DbcMessageView::DisplayEditorSignalsInternal() {
 	int flags = ImGuiTableFlags_Borders | ImGuiTableFlags_NoHostExtendX;
 
 	if (ImGui::BeginTable("bits", 8, flags)) {
-		// for (int row = 0; row < 8; row++) {
-		// 	ImGui::TableNextRow();
-		// 	for (int col = 0; col < 8; col++) {
-		// 		ImGui::TableSetColumnIndex(col);
-		// 		int id = row * 8 + (8 - col);
-		// 		ImGui::Text("%d", id);
-		// 	}
-		// }
-
 		for (int row = 0; row < 8; row++) {
 			ImGui::TableNextRow(0, 25);
+
 			for (int col = 7; col >= 0; col--) {
 				ImGui::TableNextColumn();
-				int id = row * 8 + (8 - col);
-				ImGui::Text("%d", id);
-				// TODO: figure out text spanned across the entire row
-				ImGui::Text("Blah");
+				int bit = row * 8 + col;
+				ImGui::Text("%d", bit);
 			}
 		}
-
-		// for (int y = 0; y < 8; y++) {
-		// 	for (int x = 7; x >= 0; x--) {  // LtR 7-0
-		// 		if (x < 7) ImGui::SameLine();
-		// 		int id = y * 8 + x;
-		// 		ImGui::PushID(id);
-
-		// 		std::string bitName = std::to_string(id);
-		// 		// TODO: select logic based on cur signal length
-		// 		if (ImGui::Selectable(bitName.c_str(), selecteds[y][x], 0, ImVec2(20, 20))) {
-		// 			selecteds[y][x] ^= 1;
-		// 			// TODO: on-click
-		// 			fmt::println(
-		// 				"id {} at x,y ({}, {}) is now {}", id, x, y, (selecteds[y][x] == 1 ? "ON" : "OFF"));
-		// 		}
-		// 		ImGui::PopID();
-		// 	}
-		// }
 		ImGui::EndTable();
 	}
-
-	ImGui::Button("SomeShit");
 }
 
 bool DbcMessageView::IsEditing() const { return m_editContext != nullptr; }

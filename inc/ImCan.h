@@ -1,11 +1,14 @@
 #pragma once
 
+#include <bitset>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
 
 #include "DbcNetwork.h"
+#include "DbcSignal.h"
 #include "glass/WindowManager.h"
 
 namespace imcan {
@@ -36,6 +39,32 @@ class DbcMessageView {
 		dbcan::Message::Ptr msg;
 	};
 	using EditCtxPtr = std::shared_ptr<EditCtx>;
+
+	class SignalBitView {
+	 public:
+		SignalBitView(int _startBit, int _length, dbcan::ByteOrder _order = dbcan::LittleEndian)
+				: startBit(_startBit),
+					length(_length),
+					order(_order),
+					// !!! assumes little endian!
+					bitPositions(((uint64_t(1) << length) - 1) << startBit),
+					bitset(bitPositions) {}
+		~SignalBitView() = default;
+
+		const int startBit;
+		const int length;
+		const dbcan::ByteOrder order;
+
+		const uint64_t bitPositions;
+		// BAD BAD BAD - currently assuming little endian
+		const int endbit = startBit + length;
+		// TODO: idk lmao
+
+		bool bitInside(int bit) const { return bitset[bit] == 1; }
+
+	 private:
+		std::bitset<64> bitset;
+	};
 
 	void Display();
 	void DeleteSignal(uint64_t sigId);
