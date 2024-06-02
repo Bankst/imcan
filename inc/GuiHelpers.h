@@ -3,9 +3,6 @@
 #include <functional>
 #include <string>
 
-#include "imgui.h"
-#include "imgui_stdlib.h"
-
 namespace imcan {
 
 class gui {

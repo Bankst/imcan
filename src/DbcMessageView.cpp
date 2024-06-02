@@ -2,6 +2,7 @@
 
 #include "Dbc.h"
 #include "GuiHelpers.h"
+#include "imgui_stdlib.h"
 
 namespace imcan {
 
@@ -98,7 +99,7 @@ void DbcMessageView::DisplayEditorInternal() {
 	int flags = ImGuiWindowFlags_AlwaysAutoResize;
 	if (ctx->modified) { flags |= ImGuiWindowFlags_UnsavedDocument; }
 
-	bool editorOpen = ImGui::Begin(m_editTitle.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	bool editorOpen = ImGui::Begin(m_editTitle.c_str(), nullptr, flags);
 	if (editorOpen) {
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { ImGui::CloseCurrentPopup(); }
 		auto msg = ctx->msg;

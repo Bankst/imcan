@@ -1,20 +1,11 @@
-#include "Dbc.h"
-
+#include <portable-file-dialogs.h>
 #include <sys/types.h>
 
-#include <cstdint>
 #include <iostream>
-#include <optional>
 
-#include "DbcMessage.h"
-#include "DbcNetwork.h"
-#include "DbcSignal.h"
+#include "Dbc.h"
 #include "GuiHelpers.h"
-#include "fmt/core.h"
 #include "glass/Context.h"
-#include "imgui.h"
-#include "imgui_internal.h"
-#include "imgui_stdlib.h"
 
 namespace imcan {
 

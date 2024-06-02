@@ -1,15 +1,10 @@
 #pragma once
 
-#include <portable-file-dialogs.h>
-
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
-#include <stdexcept>
-#include <string>
-#include <utility>
 
-#include "DbcMessage.h"
 #include "DbcNetwork.h"
 #include "glass/WindowManager.h"
 
@@ -32,7 +27,11 @@ class DbcMessageView {
  public:
 	DbcMessageView(DbcNetworkView *parentNet_, dbcan::Message::Ptr msg_);
 
-	struct EditCtx {
+	class EditCtx {
+	 public:
+		EditCtx(bool _modified, dbcan::Message::Ptr _msg) : modified(_modified), msg(std::move(_msg)) {}
+		~EditCtx() = default;
+
 		bool modified;
 		dbcan::Message::Ptr msg;
 	};
