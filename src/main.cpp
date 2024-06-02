@@ -1,6 +1,6 @@
 #include <wpigui.h>
 
-#include "Dbc.h"
+#include "ImCan.h"
 #include "glass/Context.h"
 #include "glass/MainMenuBar.h"
 
@@ -58,8 +58,8 @@ auto main(int argc, char **argv) -> int {
 			ImGui::Text("ImCan: A modern CAN workstation");
 			ImGui::Separator();
 			ImGui::Text("Save location: %s", glass::GetStorageDir().c_str());
-			ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-									ImGui::GetIO().Framerate);
+			ImGui::Text(
+				"%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 			if (ImGui::Button("Close")) { ImGui::CloseCurrentPopup(); }
 			ImGui::EndPopup();
 		}

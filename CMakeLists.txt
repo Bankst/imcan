@@ -28,7 +28,7 @@ add_subdirectory(dbcan)
 
 target_sources(${PROJECT_NAME} PRIVATE
 	src/main.cpp
-	src/Dbc.cpp
+	src/ImCan.cpp
 	src/DbcMessageView.cpp
 	src/GuiHelpers.cpp
 )

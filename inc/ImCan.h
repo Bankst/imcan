@@ -47,6 +47,7 @@ class DbcMessageView {
 
  private:
 	void DisplayEditorInternal();
+	void DisplayEditorSignalsInternal();
 
 	DbcNetworkView *m_net;
 	dbcan::Message::Ptr m_msg;

@@ -1,7 +1,8 @@
 #include <iostream>
 
-#include "Dbc.h"
 #include "GuiHelpers.h"
+#include "ImCan.h"
+#include "imgui.h"
 #include "imgui_stdlib.h"
 
 namespace imcan {
@@ -152,6 +153,9 @@ void DbcMessageView::DisplayEditorInternal() {
 			}
 		}
 
+		DisplayEditorSignalsInternal();
+
+		ImGui::Separator();
 		bool updateEdit = false;
 		bool doSave = false;
 		bool stopEdit = true;
@@ -179,6 +183,11 @@ void DbcMessageView::DisplayEditorInternal() {
 		if (updateEdit) { EndEdit(doSave, stopEdit); }
 	}
 	ImGui::End();
+}
+
+void DbcMessageView::DisplayEditorSignalsInternal() {
+	ImGui::SeparatorText("SignalsShit");
+	ImGui::Button("SomeShit");
 }
 
 bool DbcMessageView::IsEditing() const { return m_editContext != nullptr; }
